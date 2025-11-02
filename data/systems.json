@@ -1,0 +1,308 @@
+[
+  {
+    "id": "electrical",
+    "name": "Electrical System",
+    "slug": "electrical",
+    "description": "400Ah LiFePO4 battery bank with Victron MultiPlus 3000 inverter, solar charging, and comprehensive power distribution for off-grid living.",
+    "heroImage": "/images/systems/electrical-hero.jpg",
+    "icon": "⚡",
+    "totalCost": 8500,
+    "components": [
+      {
+        "name": "Battle Born LiFePO4 Batteries",
+        "quantity": 4,
+        "specs": "100Ah each, 12V, 3000+ cycle lifespan",
+        "cost": 4000,
+        "vendor": "Battle Born",
+        "purpose": "Primary energy storage for all electrical systems"
+      },
+      {
+        "name": "Victron MultiPlus 3000 Inverter/Charger",
+        "quantity": 1,
+        "specs": "3000W continuous, 6000W peak, automatic transfer switch",
+        "cost": 1300,
+        "vendor": "Victron Energy",
+        "purpose": "Converts 12V DC to 120V AC, charges from shore power"
+      },
+      {
+        "name": "Victron MPPT Solar Controller",
+        "quantity": 1,
+        "specs": "Maximum power point tracking for optimal solar efficiency",
+        "cost": 700,
+        "vendor": "Victron Energy",
+        "purpose": "Manages solar panel charging of battery bank"
+      },
+      {
+        "name": "Solar Panels",
+        "quantity": 1,
+        "specs": "400W total array",
+        "cost": 1000,
+        "vendor": "Various",
+        "purpose": "Generate power from sunlight for off-grid capability"
+      },
+      {
+        "name": "Heated Floor",
+        "quantity": 1,
+        "specs": "Electric heating pad system",
+        "cost": 200,
+        "vendor": "Various",
+        "purpose": "Provides floor heating for cold weather comfort"
+      },
+      {
+        "name": "Wiring & Distribution",
+        "quantity": 1,
+        "specs": "4/0 to 18 AWG, fuses, breakers, bus bars",
+        "cost": 1300,
+        "vendor": "Various",
+        "purpose": "Safe power distribution throughout the van"
+      }
+    ],
+    "relatedPosts": ["electrical-2022-07", "roof-2021-08"],
+    "specs": {
+      "Total Capacity": "400Ah @ 12V (4,800Wh usable)",
+      "Daily Solar Generation": "~1,600Wh (good sun)",
+      "Charging Sources": "Solar, Alternator (DC-DC), Shore Power",
+      "Max AC Load": "3000W continuous, 6000W peak",
+      "Max DC Load": "400A (5,000W @ 12V)"
+    },
+    "powerAnalysis": {
+      "Major Loads": {
+        "Water Heater": "1500W AC",
+        "Air Conditioning": "300W AC",
+        "Laptop": "100W AC",
+        "Lights/Fan/Toilet": "100W DC"
+      },
+      "Daily Usage": "~2,000-3,000Wh typical"
+    }
+  },
+  {
+    "id": "plumbing",
+    "name": "Plumbing System",
+    "slug": "plumbing",
+    "description": "Complete fresh and gray water system with 27-gallon tank, pump, accumulator, and dual hot water heaters for comfortable living.",
+    "heroImage": "/images/systems/plumbing-hero.jpg",
+    "icon": "💧",
+    "totalCost": 1800,
+    "components": [
+      {
+        "name": "Fresh Water Tank",
+        "quantity": 1,
+        "specs": "27 gallons, food-grade plastic",
+        "cost": 500,
+        "vendor": "Various",
+        "purpose": "Stores fresh water for drinking, cooking, washing"
+      },
+      {
+        "name": "Bosch Water Heaters",
+        "quantity": 2,
+        "specs": "8-gallon and 1-gallon electric heaters",
+        "cost": 400,
+        "vendor": "Bosch",
+        "purpose": "Provides hot water on demand"
+      },
+      {
+        "name": "Ruvati Stainless Steel Sink",
+        "quantity": 1,
+        "specs": "Single basin, undermount style",
+        "cost": 400,
+        "vendor": "Ruvati",
+        "purpose": "Kitchen sink for washing and meal prep"
+      },
+      {
+        "name": "Plumbing Hardware",
+        "quantity": 1,
+        "specs": "Pump, accumulator, PEX pipes, valves, fittings",
+        "cost": 500,
+        "vendor": "Various",
+        "purpose": "Complete water distribution and pressure system"
+      }
+    ],
+    "relatedPosts": ["plumbing-2021-07"],
+    "specs": {
+      "Fresh Water Capacity": "27 gallons",
+      "Gray Water Capacity": "~25 gallons",
+      "Hot Water": "8-gallon primary + 1-gallon instant",
+      "Water Pressure": "45-55 PSI (with accumulator)",
+      "Pump Type": "12V DC diaphragm pump"
+    }
+  },
+  {
+    "id": "hvac",
+    "name": "HVAC System",
+    "slug": "hvac",
+    "description": "Four-season climate control with propane heating, air conditioning, ventilation fans, and complete Thinsulate insulation.",
+    "heroImage": "/images/systems/hvac-hero.jpg",
+    "icon": "🌡️",
+    "totalCost": 4500,
+    "components": [
+      {
+        "name": "Webasto Propane Heater",
+        "quantity": 1,
+        "specs": "Diesel/propane heater with thermostat control",
+        "cost": 1300,
+        "vendor": "Webasto",
+        "purpose": "Primary heating for cold weather"
+      },
+      {
+        "name": "CRLawrence T-Vent Windows",
+        "quantity": 1,
+        "specs": "Multiple windows for ventilation and light",
+        "cost": 1400,
+        "vendor": "CRLawrence",
+        "purpose": "Natural ventilation and emergency egress"
+      },
+      {
+        "name": "Dometic Fridge",
+        "quantity": 1,
+        "specs": "95L capacity, 12V DC compressor",
+        "cost": 1300,
+        "vendor": "Dometic",
+        "purpose": "Food storage and refrigeration"
+      },
+      {
+        "name": "MaxxAir Fan",
+        "quantity": 1,
+        "specs": "Roof-mounted with rain sensor",
+        "cost": 500,
+        "vendor": "MaxxAir",
+        "purpose": "Powerful ventilation and air circulation"
+      }
+    ],
+    "relatedPosts": ["air-conditioner-2021-07", "roof-2021-08"],
+    "specs": {
+      "Heating": "Webasto propane heater, thermostat controlled",
+      "Cooling": "Roof-mounted AC unit",
+      "Ventilation": "MaxxAir fan + multiple windows",
+      "Insulation": "Thinsulate throughout walls, ceiling, floor",
+      "Climate Rating": "Four-season capable (-20°F to 100°F)"
+    }
+  },
+  {
+    "id": "solar",
+    "name": "Solar Power",
+    "slug": "solar",
+    "description": "400W solar array with MPPT charge controller providing sustainable off-grid power generation.",
+    "heroImage": "/images/systems/solar-hero.jpg",
+    "icon": "☀️",
+    "totalCost": 1700,
+    "components": [
+      {
+        "name": "Solar Panels",
+        "quantity": 1,
+        "specs": "400W total array, roof-mounted",
+        "cost": 1000,
+        "vendor": "Various",
+        "purpose": "Generate electricity from sunlight"
+      },
+      {
+        "name": "Victron MPPT Solar Controller",
+        "quantity": 1,
+        "specs": "Maximum power point tracking algorithm",
+        "cost": 700,
+        "vendor": "Victron Energy",
+        "purpose": "Optimize solar charging efficiency"
+      }
+    ],
+    "relatedPosts": ["electrical-2022-07", "roof-2021-08"],
+    "specs": {
+      "Panel Capacity": "400W total",
+      "Daily Generation": "~1,600Wh (good sun conditions)",
+      "Controller Type": "Victron MPPT",
+      "Mounting": "Low-profile roof mounts",
+      "Estimated Payback": "~3 years vs. campground fees"
+    }
+  },
+  {
+    "id": "propane",
+    "name": "Propane System",
+    "slug": "propane",
+    "description": "Horizontal propane tank with distribution to heater and range for cooking and supplemental heating.",
+    "heroImage": "/images/systems/propane-hero.jpg",
+    "icon": "🔥",
+    "totalCost": 1200,
+    "components": [
+      {
+        "name": "Horizontal Propane Tank",
+        "quantity": 1,
+        "specs": "Mounted with proper ventilation",
+        "cost": 100,
+        "vendor": "Various",
+        "purpose": "Stores propane fuel for heating and cooking"
+      },
+      {
+        "name": "Dometic Propane Range/Oven",
+        "quantity": 1,
+        "specs": "3-burner cooktop with oven",
+        "cost": 1000,
+        "vendor": "Dometic",
+        "purpose": "Cooking without using precious battery power"
+      },
+      {
+        "name": "Propane Hardware",
+        "quantity": 1,
+        "specs": "Regulators, lines, valves, leak detectors",
+        "cost": 100,
+        "vendor": "Various",
+        "purpose": "Safe propane distribution"
+      }
+    ],
+    "relatedPosts": ["propane-2021-09"],
+    "specs": {
+      "Tank Capacity": "~20 lbs",
+      "Appliances": "Webasto heater, Dometic range/oven",
+      "Safety Features": "Leak detector, exterior venting, proper ventilation",
+      "Refill Frequency": "~2-4 weeks depending on use"
+    }
+  },
+  {
+    "id": "structural",
+    "name": "Structural System",
+    "slug": "structural",
+    "description": "80/20 extruded aluminum frame providing modular, strong, and thermally-isolated mounting points for all systems.",
+    "heroImage": "/images/systems/structural-hero.jpg",
+    "icon": "🏗️",
+    "totalCost": 11300,
+    "components": [
+      {
+        "name": "80/20 Aluminum Framing",
+        "quantity": 1,
+        "specs": "T-slotted extrusion, various profiles",
+        "cost": 5500,
+        "vendor": "80/20 Inc",
+        "purpose": "Primary structural framework for entire build"
+      },
+      {
+        "name": "Wood Paneling",
+        "quantity": 1,
+        "specs": "Birch plywood, various thicknesses",
+        "cost": 3000,
+        "vendor": "Various",
+        "purpose": "Interior wall and ceiling finish"
+      },
+      {
+        "name": "Wooden Slats & Lights",
+        "quantity": 1,
+        "specs": "1/2\" poplar, 2\" wide, 10 puck lights integrated",
+        "cost": 2000,
+        "vendor": "Various",
+        "purpose": "Signature ceiling aesthetic with integrated lighting"
+      },
+      {
+        "name": "Upper Cabinets",
+        "quantity": 1,
+        "specs": "Titan DIY overhead storage",
+        "cost": 800,
+        "vendor": "Titan DIY",
+        "purpose": "Kitchen and storage space"
+      }
+    ],
+    "relatedPosts": ["framing-2020-09", "floor-2022-07", "slats-2021-09", "walls-ceiling-2021-05"],
+    "specs": {
+      "Frame Material": "80/20 T-slot aluminum extrusion",
+      "Floor System": "10-layer construction with thermal breaks",
+      "Walls": "Birch plywood over Thinsulate insulation",
+      "Ceiling": "Poplar slat system with integrated LED puck lights",
+      "Modularity": "All components bolt to t-slots for reconfiguration"
+    }
+  }
+]
