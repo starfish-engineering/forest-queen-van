@@ -111,7 +111,9 @@ export default function SystemPage({ params }: { params: { slug: string } }) {
           <div className="max-w-5xl mx-auto">
             <h2 className="text-3xl font-bold text-gray-900 mb-8">Specifications</h2>
             <div className="grid md:grid-cols-2 gap-6">
-              {Object.entries(system.specs).map(([key, value]) => (
+              {Object.entries(system.specs)
+                .filter(([, value]) => value !== undefined)
+                .map(([key, value]) => (
                 <div
                   key={key}
                   className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-all hover:scale-105 border-l-4 border-emerald-500"

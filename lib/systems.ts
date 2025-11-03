@@ -19,7 +19,7 @@ export interface System {
   totalCost: number;
   components: SystemComponent[];
   relatedPosts: string[];
-  specs: Record<string, string>;
+  specs: Record<string, string | undefined>;
   powerAnalysis?: {
     [key: string]: Record<string, string> | string;
   };
