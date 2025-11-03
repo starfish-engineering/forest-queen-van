@@ -36,11 +36,31 @@ export default function SystemPage({ params }: { params: { slug: string } }) {
   const allPosts = getAllPosts();
   const relatedPosts = allPosts.filter(post => system.relatedPosts.includes(post.id));
 
+  // Map systems to background images
+  const systemBackgrounds: Record<string, string> = {
+    'electrical': '/images/posts/electrical/IMG_3859.jpeg',
+    'plumbing': '/images/posts/plumbing/IMG_4964.jpeg',
+    'hvac': '/images/posts/air-conditioner/IMG_7741.jpeg',
+    'solar': '/images/posts/roof/IMG_5884.jpeg',
+    'propane': '/images/posts/propane/IMG_8459.jpeg',
+    'structural': '/images/posts/framing/IMG_1504.jpeg',
+  };
+
+  const backgroundImage = systemBackgrounds[system.slug] || '/images/posts/electrical/IMG_3859.jpeg';
+
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-emerald-900 to-teal-900 text-white py-20 px-6">
-        <div className="max-w-5xl mx-auto">
+      <section className="relative overflow-hidden text-white py-20 px-6">
+        <div className="absolute inset-0">
+          <img
+            src={backgroundImage}
+            alt={system.name}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/90 to-teal-900/90"></div>
+        </div>
+        <div className="max-w-5xl mx-auto relative z-10">
           <Link
             href="/systems"
             className="inline-flex items-center gap-2 text-white/80 hover:text-white mb-6 text-sm font-medium transition-colors"
@@ -226,10 +246,19 @@ export default function SystemPage({ params }: { params: { slug: string } }) {
                   href={`/journal/${post.slug}`}
                   className="group bg-white rounded-2xl border-2 border-gray-200 hover:border-emerald-500 overflow-hidden hover:shadow-xl transition-all hover:scale-105"
                 >
-                  <div className="aspect-video bg-gray-200 relative">
-                    <div className="absolute inset-0 flex items-center justify-center text-gray-400">
-                      <span className="text-5xl">{post.imageCount || 0}</span>
-                    </div>
+                  <div className="aspect-video bg-gray-200 relative overflow-hidden">
+                    {post.featuredImage ? (
+                      <img
+                        src={post.featuredImage}
+                        alt={post.title}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+                        <span className="text-5xl">{post.imageCount || 0}</span>
+                      </div>
+                    )}
                   </div>
                   <div className="p-6">
                     <div className="text-sm text-emerald-700 font-semibold mb-2">

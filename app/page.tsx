@@ -13,9 +13,14 @@ export default function Home() {
     <div className="min-h-screen bg-white">
       {/* Hero Section - Story-Driven */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        {/* Background gradient (you can replace with actual hero image) */}
-        <div className="absolute inset-0 bg-gradient-to-br from-emerald-900 via-green-800 to-teal-900">
-          <div className="absolute inset-0 bg-black/30"></div>
+        {/* Background image with overlay */}
+        <div className="absolute inset-0">
+          <img
+            src="/images/posts/garden-1/IMG_1445.jpeg"
+            alt="Forest Queen Van Interior"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/80 via-green-800/70 to-teal-900/80"></div>
         </div>
 
         <div className="relative z-10 text-center px-6 max-w-5xl mx-auto py-20">
@@ -131,11 +136,19 @@ export default function Home() {
                 href={`/journal/${post.slug}`}
                 className="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all hover:scale-105"
               >
-                <div className="aspect-video bg-gray-200 relative">
-                  {/* Placeholder for image */}
-                  <div className="absolute inset-0 flex items-center justify-center text-gray-400">
-                    <span className="text-6xl">{post.imageCount || 0}</span>
-                  </div>
+                <div className="aspect-video bg-gray-200 relative overflow-hidden group">
+                  {post.featuredImage ? (
+                    <img
+                      src={post.featuredImage}
+                      alt={post.title}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+                      <span className="text-6xl">{post.imageCount || 0}</span>
+                    </div>
+                  )}
                 </div>
                 <div className="p-6">
                   <div className="text-sm text-emerald-700 font-semibold mb-2">
@@ -207,6 +220,62 @@ export default function Home() {
               className="text-emerald-700 hover:text-emerald-900 font-semibold text-lg flex items-center justify-center gap-2"
             >
               Explore All Systems
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Photo Gallery Showcase */}
+      <section className="py-20 px-6 bg-gray-50">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+              The Build in Photos
+            </h2>
+            <p className="text-xl text-gray-600">
+              148 photos documenting the complete transformation
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {/* Showcase best images from the build */}
+            {[
+              { src: '/images/posts/garden-1/IMG_1445.jpeg', alt: 'Indoor skylight garden' },
+              { src: '/images/posts/slats/IMG_8356.jpeg', alt: 'Wooden ceiling slats with lighting' },
+              { src: '/images/posts/electrical/IMG_3859.jpeg', alt: 'Electrical system installation' },
+              { src: '/images/posts/roof/IMG_5884.jpeg', alt: 'Solar panels on roof' },
+              { src: '/images/posts/floor-2/IMG_3857.jpeg', alt: 'Floor construction detail' },
+              { src: '/images/posts/butcher-block-overhang-extension/IMG_0772.jpeg', alt: 'Butcher block counter extension' },
+              { src: '/images/posts/air-conditioner/IMG_7741.jpeg', alt: 'Air conditioning installation' },
+              { src: '/images/posts/propane/IMG_8459.jpeg', alt: 'Propane system' },
+              { src: '/images/posts/framing/IMG_1504.jpeg', alt: '80/20 aluminum framing' },
+              { src: '/images/posts/plumbing/IMG_4964.jpeg', alt: 'Plumbing system' },
+              { src: '/images/posts/upper-cabinets/IMG_0593.jpeg', alt: 'Upper cabinets installed' },
+              { src: '/images/posts/garden-1/IMG_1449.jpeg', alt: 'Garden with natural light' }
+            ].map((image, index) => (
+              <div
+                key={index}
+                className="aspect-square bg-gray-200 rounded-lg overflow-hidden group hover:scale-105 transition-transform duration-300 cursor-pointer"
+              >
+                <img
+                  src={image.src}
+                  alt={image.alt}
+                  className="w-full h-full object-cover group-hover:brightness-110 transition-all duration-300"
+                  loading="lazy"
+                />
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-12 text-center">
+            <Link
+              href="/journal"
+              className="inline-block text-emerald-700 hover:text-emerald-900 font-semibold text-lg flex items-center justify-center gap-2"
+            >
+              View All Build Photos
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
               </svg>

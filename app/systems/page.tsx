@@ -14,7 +14,15 @@ export default function SystemsPage() {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-emerald-900 via-teal-800 to-green-900 text-white py-24 px-6">
+      <section className="relative overflow-hidden text-white py-24 px-6">
+        <div className="absolute inset-0">
+          <img
+            src="/images/posts/electrical/IMG_3859.jpeg"
+            alt="Electrical system"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/90 via-teal-800/85 to-green-900/90"></div>
+        </div>
         <div className="max-w-6xl mx-auto text-center relative z-10">
           <div className="inline-block mb-6 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full text-sm font-semibold">
             🔧 Technical Deep Dive

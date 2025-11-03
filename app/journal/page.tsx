@@ -63,13 +63,22 @@ export default function JournalPage() {
                       className="block bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all hover:scale-105 overflow-hidden border border-gray-100"
                     >
                       {/* Image Placeholder */}
-                      <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 relative">
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="text-center">
-                            <div className="text-5xl text-gray-400 mb-2">{post.imageCount || 0}</div>
-                            <div className="text-sm text-gray-500">photos</div>
+                      <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 relative overflow-hidden">
+                        {post.featuredImage ? (
+                          <img
+                            src={post.featuredImage}
+                            alt={post.title}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="text-center">
+                              <div className="text-5xl text-gray-400 mb-2">{post.imageCount || 0}</div>
+                              <div className="text-sm text-gray-500">photos</div>
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </div>
 
                       {/* Content */}
