@@ -58,7 +58,7 @@ export function RankingsPanel() {
   };
 
   const handleDrillIn = (tract: RankedTract) => {
-    drillIntoTract(tract.geoid, tract.name, tract.geometry);
+    drillIntoTract(tract.geoid, tract.name, tract.lat, tract.lng);
   };
 
   return (
@@ -116,12 +116,12 @@ export function RankingsPanel() {
         ) : (
           <div className="divide-y divide-[var(--border-subtle)]">
             {data?.tracts.map((tract) => (
-              <button
+              <div
                 key={tract.geoid}
                 onClick={() => handleTractClick(tract)}
                 onDoubleClick={() => handleDrillIn(tract)}
                 className={`
-                  w-full px-4 py-3 text-left transition-colors
+                  w-full px-4 py-3 text-left transition-colors cursor-pointer
                   hover:bg-[var(--bg-hover)]
                   ${selectedScoutTract === tract.geoid ? 'bg-[var(--accent-primary-dim)]' : ''}
                 `}
@@ -175,7 +175,7 @@ export function RankingsPanel() {
                     </button>
                   </div>
                 )}
-              </button>
+              </div>
             ))}
           </div>
         )}

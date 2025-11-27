@@ -383,6 +383,18 @@ export function Map() {
     });
   }, [subjectTract, adjacentTracts, includeAdjacentTracts, mapLoaded]);
 
+  // Fly to location when mapCenter changes (e.g., from Scout drill-in)
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+    
+    map.current.flyTo({
+      center: [mapCenter.longitude, mapCenter.latitude],
+      zoom: mapZoom,
+      duration: 1500,
+      essential: true,
+    });
+  }, [mapCenter.latitude, mapCenter.longitude, mapZoom, mapLoaded]);
+
   // Fetch and display heatmap data
   useEffect(() => {
     if (!map.current || !mapLoaded) return;

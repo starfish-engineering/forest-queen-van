@@ -22,7 +22,8 @@ export interface RankedTract {
   permitCount: number;
   permitValue: number;
   trend: 'rising' | 'steady' | 'cooling';
-  geometry: unknown;
+  lat: number;
+  lng: number;
 }
 
 export async function GET(request: NextRequest) {
@@ -122,7 +123,8 @@ export async function GET(request: NextRequest) {
         permitCount,
         permitValue,
         trend,
-        geometry: null, // Would need separate lookup
+        lat: parseFloat(row.lat || '40.7128'),
+        lng: parseFloat(row.lng || '-73.9856'),
       };
     });
 

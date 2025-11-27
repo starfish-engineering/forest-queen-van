@@ -84,7 +84,7 @@ interface AppState {
   setMapView: (center: Coordinates, zoom: number) => void;
   resetFilters: () => void;
   clearAll: () => void;
-  drillIntoTract: (geoid: string, name: string, geometry: unknown) => void;
+  drillIntoTract: (geoid: string, name: string, lat: number, lng: number) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -161,17 +161,18 @@ export const useAppStore = create<AppState>((set) => ({
     mapZoom: 11,
   }),
   
-  // Drill into a tract from Scout mode → switches to Lookup mode with that tract selected
-  drillIntoTract: (geoid, name, geometry) => set({
+  // Drill into a tract from Scout mode → switches to Lookup mode and flies to location
+  drillIntoTract: (geoid, name, lat, lng) => set({
     mode: 'lookup',
-    subjectTract: {
-      geoid,
-      name,
-      countyFips: geoid.slice(0, 5),
-      landAreaSqm: null,
-      geometry,
+    subjectAddress: {
+      formatted: name,
+      latitude: lat,
+      longitude: lng,
     },
+    subjectTract: null, // Will be populated by search
     selectedScoutTract: null,
+    mapCenter: { latitude: lat, longitude: lng },
+    mapZoom: 15,
   }),
 }));
 
