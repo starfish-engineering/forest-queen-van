@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
     let filteredPermits = permits;
     if (permitTypesToInclude && permitTypesToInclude.length > 0) {
       filteredPermits = permits.filter(p => 
-        permitTypesToInclude!.includes(p.permit_type)
+        permitTypesToInclude!.includes(p.job_type || 'Unknown')
       );
     }
 

@@ -433,12 +433,15 @@ export function Map() {
       return;
     }
 
-    const fetchHeatmapData = async () => {
+    const fetchHeatmapData = async (forceRefetch = false) => {
       const currentZoom = map.current?.getZoom() || 0;
       const lodLevel = getLODLevel(currentZoom);
       
+      console.log(`[Heatmap] zoom=${currentZoom.toFixed(1)}, LOD=${lodLevel}, last=${lastLODRef.current}, force=${forceRefetch}`);
+      
       // Skip fetch if LOD level hasn't changed (except for granular which needs bounds)
-      if (lodLevel === lastLODRef.current && lodLevel !== 'granular') {
+      if (!forceRefetch && lodLevel === lastLODRef.current && lodLevel !== 'granular') {
+        console.log('[Heatmap] Skipping - same LOD level');
         return;
       }
       
@@ -452,6 +455,7 @@ export function Map() {
       try {
         setHeatmapLOD(lodLevel);
         lastLODRef.current = lodLevel;
+        console.log(`[Heatmap] Fetching ${lodLevel} data...`);
 
         let features: GeoJSON.Feature[] = [];
 
@@ -545,21 +549,32 @@ export function Map() {
     };
 
     // Fetch initial heatmap data
-    fetchHeatmapData();
+    console.log('[Heatmap] Initial fetch triggered');
+    fetchHeatmapData(true);
 
     // Update heatmap when map moves (debounced)
-    let timeoutId: NodeJS.Timeout;
+    let moveTimeoutId: NodeJS.Timeout;
     const handleMoveEnd = () => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(fetchHeatmapData, 500);
+      clearTimeout(moveTimeoutId);
+      moveTimeoutId = setTimeout(() => fetchHeatmapData(), 300);
+    };
+
+    // Also listen for zoom changes to detect LOD transitions faster
+    let zoomTimeoutId: NodeJS.Timeout;
+    const handleZoom = () => {
+      clearTimeout(zoomTimeoutId);
+      zoomTimeoutId = setTimeout(() => fetchHeatmapData(), 200);
     };
 
     map.current.on('moveend', handleMoveEnd);
+    map.current.on('zoomend', handleZoom);
 
     return () => {
-      clearTimeout(timeoutId);
+      clearTimeout(moveTimeoutId);
+      clearTimeout(zoomTimeoutId);
       if (heatmapFetchRef.current) heatmapFetchRef.current.abort();
       map.current?.off('moveend', handleMoveEnd);
+      map.current?.off('zoomend', handleZoom);
       lastLODRef.current = null; // Reset LOD on cleanup so data refetches
     };
   }, [mapLoaded, mode, timeHorizon]);
