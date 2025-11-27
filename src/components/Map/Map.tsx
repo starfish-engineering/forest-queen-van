@@ -396,10 +396,11 @@ export function Map() {
     });
   }, [mapCenter.latitude, mapCenter.longitude, mapZoom, mapLoaded]);
 
-  // Fetch and display heatmap data - ONLY in Scout mode when zoomed in
-  // Minimum zoom level to show heatmap (prevents loading 30k points city-wide)
-  const HEATMAP_MIN_ZOOM = 12;
+  // Fetch and display heatmap data - ONLY in Scout mode
+  // Uses LOD (level of detail): aggregated tract data when zoomed out, granular permits when zoomed in
+  const GRANULAR_ZOOM_THRESHOLD = 13; // Switch to individual permits above this zoom
   const [heatmapVisible, setHeatmapVisible] = useState(false);
+  const [heatmapMode, setHeatmapMode] = useState<'aggregated' | 'granular'>('aggregated');
   
   useEffect(() => {
     if (!map.current || !mapLoaded) return;
@@ -424,12 +425,6 @@ export function Map() {
     const fetchHeatmapData = async () => {
       const currentZoom = map.current?.getZoom() || 0;
       
-      // Don't load heatmap when zoomed out too far
-      if (currentZoom < HEATMAP_MIN_ZOOM) {
-        clearHeatmap();
-        return;
-      }
-
       // Prevent concurrent fetches
       if (isFetching) return;
       isFetching = true;
@@ -441,39 +436,102 @@ export function Map() {
       abortController = new AbortController();
 
       try {
-        const bounds = map.current?.getBounds();
-        if (!bounds) return;
+        // Choose data source based on zoom level
+        const useGranular = currentZoom >= GRANULAR_ZOOM_THRESHOLD;
+        setHeatmapMode(useGranular ? 'granular' : 'aggregated');
 
-        const sw = bounds.getSouthWest();
-        const ne = bounds.getNorthEast();
-        const boundsParam = `${sw.lng},${sw.lat},${ne.lng},${ne.lat}`;
+        let features: GeoJSON.Feature[] = [];
 
-        const response = await fetch(
-          `/api/heatmap?bounds=${boundsParam}&timeHorizon=${timeHorizon}`,
-          { signal: abortController.signal }
-        );
+        if (useGranular) {
+          // Zoomed in: use granular permit data
+          const bounds = map.current?.getBounds();
+          if (!bounds) { isFetching = false; return; }
 
-        if (!response.ok) throw new Error('Heatmap fetch failed');
+          const sw = bounds.getSouthWest();
+          const ne = bounds.getNorthEast();
+          const boundsParam = `${sw.lng},${sw.lat},${ne.lng},${ne.lat}`;
 
-        const data = await response.json();
+          const response = await fetch(
+            `/api/heatmap?bounds=${boundsParam}&timeHorizon=${timeHorizon}`,
+            { signal: abortController.signal }
+          );
+
+          if (!response.ok) throw new Error('Granular heatmap fetch failed');
+          const data = await response.json();
+
+          features = (data.points || []).map((p: { latitude: number; longitude: number; weight: number }) => ({
+            type: 'Feature' as const,
+            geometry: { type: 'Point' as const, coordinates: [p.longitude, p.latitude] },
+            properties: { weight: p.weight },
+          }));
+
+          console.log(`Heatmap (granular): ${features.length} permits`);
+        } else {
+          // Zoomed out: use aggregated tract-level data (~200 points vs 30k!)
+          const response = await fetch(
+            `/api/heatmap/aggregated?timeHorizon=${timeHorizon}`,
+            { signal: abortController.signal }
+          );
+
+          if (!response.ok) throw new Error('Aggregated heatmap fetch failed');
+          const data = await response.json();
+
+          // Convert tract data to heatmap points with capital-based weights
+          // Find max values for normalization
+          const maxCapital = Math.max(...data.tracts.map((t: { totalCapital: number }) => t.totalCapital));
+          const maxCount = Math.max(...data.tracts.map((t: { permitCount: number }) => t.permitCount));
+          
+          features = (data.tracts || []).map((t: { lat: number; lng: number; totalCapital: number; permitCount: number }) => {
+            // Normalize weights relative to max values (0-1 range, then scale to 1-10)
+            const capitalNorm = maxCapital > 0 ? t.totalCapital / maxCapital : 0;
+            const countNorm = maxCount > 0 ? t.permitCount / maxCount : 0;
+            
+            // Weight more by capital, but also consider count
+            const weight = 1 + (capitalNorm * 6) + (countNorm * 3);
+
+            return {
+              type: 'Feature' as const,
+              geometry: { type: 'Point' as const, coordinates: [t.lng, t.lat] },
+              properties: { weight },
+            };
+          });
+
+          console.log(`Heatmap (aggregated): ${features.length} tracts, ~${data.tracts?.reduce((s: number, t: { permitCount: number }) => s + t.permitCount, 0) || 0} permits`);
+        }
 
         const source = map.current?.getSource('permits-heatmap') as mapboxgl.GeoJSONSource;
-        if (source && data.points) {
-          source.setData({
-            type: 'FeatureCollection',
-            features: data.points.map((p: { latitude: number; longitude: number; weight: number }) => ({
-              type: 'Feature',
-              geometry: {
-                type: 'Point',
-                coordinates: [p.longitude, p.latitude],
-              },
-              properties: {
-                weight: p.weight,
-              },
-            })),
-          });
-          setHeatmapVisible(true);
-          console.log(`Heatmap: ${data.points.length} permits in viewport`);
+        if (source) {
+          source.setData({ type: 'FeatureCollection', features });
+          setHeatmapVisible(features.length > 0);
+          
+          // Adjust heatmap layer properties based on data type
+          if (useGranular) {
+            // Granular mode: smaller radius for individual permits
+            map.current?.setPaintProperty('permits-heat', 'heatmap-radius', [
+              'interpolate', ['linear'], ['zoom'],
+              10, 15,
+              15, 30,
+            ]);
+            map.current?.setPaintProperty('permits-heat', 'heatmap-intensity', [
+              'interpolate', ['linear'], ['zoom'],
+              10, 1,
+              15, 3,
+            ]);
+          } else {
+            // Aggregated mode: much larger radius for neighborhood-level data
+            map.current?.setPaintProperty('permits-heat', 'heatmap-radius', [
+              'interpolate', ['linear'], ['zoom'],
+              8, 40,
+              11, 60,
+              13, 80,
+            ]);
+            map.current?.setPaintProperty('permits-heat', 'heatmap-intensity', [
+              'interpolate', ['linear'], ['zoom'],
+              8, 0.5,
+              11, 1,
+              13, 1.5,
+            ]);
+          }
         }
       } catch (error) {
         if ((error as Error).name !== 'AbortError') {
@@ -484,14 +542,14 @@ export function Map() {
       }
     };
 
-    // Fetch initial heatmap data (if zoomed in enough)
+    // Fetch initial heatmap data
     fetchHeatmapData();
 
-    // Update heatmap when map moves (debounced 800ms for performance)
+    // Update heatmap when map moves (debounced)
     let timeoutId: NodeJS.Timeout;
     const handleMoveEnd = () => {
       clearTimeout(timeoutId);
-      timeoutId = setTimeout(fetchHeatmapData, 800);
+      timeoutId = setTimeout(fetchHeatmapData, 500);
     };
 
     map.current.on('moveend', handleMoveEnd);
@@ -580,20 +638,20 @@ export function Map() {
         </div>
       )}
       
-      {/* Scout mode: Zoom in prompt when heatmap not visible */}
-      {mode === 'scout' && mapLoaded && !heatmapVisible && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50">
-          <div className="glass px-4 py-3 rounded-lg text-center"
-               style={{ border: '1px solid var(--border-default)' }}>
-            <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-              </svg>
-              Zoom in to see capital flow heatmap
-            </div>
-            <p className="text-xs text-[var(--text-tertiary)] mt-1">
-              Use rankings panel to jump to hotspots →
-            </p>
+      {/* Scout mode: Show data mode indicator */}
+      {mode === 'scout' && mapLoaded && heatmapVisible && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+          <div className="glass px-3 py-1.5 rounded-full text-xs"
+               style={{ border: '1px solid var(--border-default)', opacity: 0.8 }}>
+            {heatmapMode === 'aggregated' ? (
+              <span className="text-[var(--text-secondary)]">
+                🗺️ Neighborhood view • Zoom in for permits
+              </span>
+            ) : (
+              <span className="text-cyan-400">
+                📍 Permit-level view
+              </span>
+            )}
           </div>
         </div>
       )}
