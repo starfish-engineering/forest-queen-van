@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getNearbyPermits, transformPermit } from '@/lib/nyc-open-data';
+import { db } from '@/lib/db/client';
+import { sql } from 'drizzle-orm';
 import type { TimeHorizon } from '@/types';
 
 // Map filter categories to actual permit types
@@ -48,55 +49,84 @@ export async function GET(request: NextRequest) {
     }
 
     const monthsBack = HORIZON_MONTHS[timeHorizon] || 12;
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - monthsBack);
+    const cutoffDate = cutoff.toISOString().split('T')[0];
 
-    // Fetch live data from NYC Open Data
-    const permits = await getNearbyPermits({
-      lat,
-      lng,
-      radiusDegrees: radius,
-      monthsBack,
-      limit,
-    });
+    // Calculate bounding box
+    const minLat = lat - radius;
+    const maxLat = lat + radius;
+    const minLng = lng - radius;
+    const maxLng = lng + radius;
 
-    // Apply client-side type filtering if needed
-    let filteredPermits = permits;
-    if (permitTypesToInclude && permitTypesToInclude.length > 0) {
-      filteredPermits = permits.filter(p => 
-        permitTypesToInclude!.includes(p.job_type || 'Unknown')
-      );
-    }
+    // Build type filter
+    const typeFilter = permitTypesToInclude && permitTypesToInclude.length > 0
+      ? sql`AND job_type IN (${sql.join(permitTypesToInclude.map(t => sql`${t}`), sql`, `)})`
+      : sql``;
 
-    // Transform to GeoJSON for easy map rendering
-    const geojson = {
-      type: 'FeatureCollection' as const,
-      features: filteredPermits
-        .filter(p => p.gis_latitude && p.gis_longitude)
-        .map((p) => {
-          const transformed = transformPermit(p);
-          return {
+    // Query permits from database
+    const results = await db.execute(sql`
+      SELECT 
+        id,
+        permit_number,
+        job_type,
+        permit_subtype,
+        description,
+        filing_date,
+        address,
+        borough,
+        estimated_cost,
+        latitude,
+        longitude
+      FROM permits
+      WHERE filing_date >= ${cutoffDate}
+        AND latitude IS NOT NULL
+        AND longitude IS NOT NULL
+        AND CAST(latitude AS NUMERIC) BETWEEN ${minLat} AND ${maxLat}
+        AND CAST(longitude AS NUMERIC) BETWEEN ${minLng} AND ${maxLng}
+        ${typeFilter}
+      ORDER BY filing_date DESC
+      LIMIT ${limit}
+    `);
+
+    // Transform to GeoJSON
+    const features = (results as unknown as Array<{
+      id: string;
+      permit_number: string | null;
+      job_type: string | null;
+      permit_subtype: string | null;
+      description: string | null;
+      filing_date: string | null;
+      address: string | null;
+      borough: string | null;
+      estimated_cost: string | null;
+      latitude: string;
+      longitude: string;
+    }>)
+      .filter(r => r.latitude && r.longitude)
+      .map(r => ({
         type: 'Feature' as const,
         geometry: {
           type: 'Point' as const,
-              coordinates: [transformed.longitude!, transformed.latitude!],
+          coordinates: [parseFloat(r.longitude), parseFloat(r.latitude)],
         },
         properties: {
-              id: transformed.id,
-              permitNumber: transformed.permitNumber,
-              permitType: transformed.permitType,
-              permitSubtype: transformed.permitSubtype,
-              description: transformed.description,
-              filingDate: transformed.filingDate,
-              address: transformed.address,
-              borough: transformed.borough,
-              estimatedCost: transformed.estimatedCost,
+          id: r.id,
+          permitNumber: r.permit_number,
+          permitType: r.job_type || 'Unknown',
+          permitSubtype: r.permit_subtype,
+          description: r.description,
+          filingDate: r.filing_date,
+          address: r.address,
+          borough: r.borough,
+          estimatedCost: parseFloat(r.estimated_cost || '0') || 0,
         },
-          };
-        }),
-    };
+      }));
 
     return NextResponse.json({
-      ...geojson,
-      source: 'live',
+      type: 'FeatureCollection' as const,
+      features,
+      source: 'database',
     });
   } catch (error) {
     console.error('Nearby permits query error:', error);
@@ -106,4 +136,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-
