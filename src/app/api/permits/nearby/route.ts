@@ -3,16 +3,6 @@ import { db } from '@/lib/db/client';
 import { sql } from 'drizzle-orm';
 import type { TimeHorizon } from '@/types';
 
-// Map filter categories to actual permit types
-const PERMIT_TYPE_MAP: Record<string, string[]> = {
-  newConstruction: ['NB'],
-  majorRenovation: ['A1'],
-  commercialTi: ['A2'],
-  multifamily: ['A3'],
-  demolition: ['DM'],
-  equipment: ['EW', 'EQ'],
-};
-
 // Map time horizon to months
 const HORIZON_MONTHS: Record<TimeHorizon, number> = {
   '6mo': 6,
@@ -27,7 +17,6 @@ export async function GET(request: NextRequest) {
   const lng = parseFloat(searchParams.get('lng') || '0');
   const radius = parseFloat(searchParams.get('radius') || '0.01');
   const limit = parseInt(searchParams.get('limit') || '300');
-  const types = searchParams.get('types');
   const timeHorizon = (searchParams.get('timeHorizon') || '1yr') as TimeHorizon;
 
   if (!lat || !lng) {
@@ -38,16 +27,6 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Build list of permit types to include based on filters
-    let permitTypesToInclude: string[] | null = null;
-    if (types) {
-      const filterIds = types.split(',');
-      permitTypesToInclude = filterIds.flatMap(id => PERMIT_TYPE_MAP[id] || []);
-      if (permitTypesToInclude.length === 0) {
-        permitTypesToInclude = null;
-      }
-    }
-
     const monthsBack = HORIZON_MONTHS[timeHorizon] || 12;
     const cutoff = new Date();
     cutoff.setMonth(cutoff.getMonth() - monthsBack);
@@ -59,17 +38,12 @@ export async function GET(request: NextRequest) {
     const minLng = lng - radius;
     const maxLng = lng + radius;
 
-    // Build type filter
-    const typeFilter = permitTypesToInclude && permitTypesToInclude.length > 0
-      ? sql`AND job_type IN (${sql.join(permitTypesToInclude.map(t => sql`${t}`), sql`, `)})`
-      : sql``;
-
     // Query permits from database
     const results = await db.execute(sql`
       SELECT 
         id,
         permit_number,
-        job_type,
+        permit_type,
         permit_subtype,
         description,
         filing_date,
@@ -82,9 +56,8 @@ export async function GET(request: NextRequest) {
       WHERE filing_date >= ${cutoffDate}
         AND latitude IS NOT NULL
         AND longitude IS NOT NULL
-        AND CAST(latitude AS NUMERIC) BETWEEN ${minLat} AND ${maxLat}
-        AND CAST(longitude AS NUMERIC) BETWEEN ${minLng} AND ${maxLng}
-        ${typeFilter}
+        AND latitude::numeric BETWEEN ${minLat} AND ${maxLat}
+        AND longitude::numeric BETWEEN ${minLng} AND ${maxLng}
       ORDER BY filing_date DESC
       LIMIT ${limit}
     `);
@@ -93,7 +66,7 @@ export async function GET(request: NextRequest) {
     const features = (results as unknown as Array<{
       id: string;
       permit_number: string | null;
-      job_type: string | null;
+      permit_type: string | null;
       permit_subtype: string | null;
       description: string | null;
       filing_date: string | null;
@@ -113,7 +86,7 @@ export async function GET(request: NextRequest) {
         properties: {
           id: r.id,
           permitNumber: r.permit_number,
-          permitType: r.job_type || 'Unknown',
+          permitType: r.permit_type || 'Unknown',
           permitSubtype: r.permit_subtype,
           description: r.description,
           filingDate: r.filing_date,
