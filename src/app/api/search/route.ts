@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/client';
-import { censusTracts } from '@/lib/db/schema';
+import { sql } from 'drizzle-orm';
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
@@ -44,33 +44,68 @@ export async function GET(request: NextRequest) {
     const [longitude, latitude] = feature.center;
     const formattedAddress = feature.place_name;
 
-    // Step 2: Find the census tract containing this point
-    // For MVP, we'll return a placeholder tract until PostGIS queries are set up
-    // In production, this would use ST_Contains with the geometry column
-    
+    // Step 2: Find the census tract containing this point using PostGIS
     let censusTract = null;
     let adjacentTracts: Array<{ geoid: string; name: string }> = [];
 
-    // Query for tracts (simplified for initial setup - will use PostGIS in production)
-    const tractResult = await db
-      .select()
-      .from(censusTracts)
-      .limit(1);
+    // PostGIS point-in-polygon query
+    const tractResult = await db.execute<{
+      geoid: string;
+      name: string | null;
+      county_fips: string;
+      land_area_sqm: string | null;
+      geometry: string;
+    }>(sql`
+      SELECT 
+        geoid, 
+        name, 
+        county_fips,
+        land_area_sqm,
+        geometry
+      FROM census_tracts 
+      WHERE ST_Contains(
+        ST_GeomFromGeoJSON(geometry), 
+        ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)
+      )
+      LIMIT 1
+    `);
 
-    if (tractResult.length > 0) {
-      const tract = tractResult[0];
+    // db.execute returns array directly with postgres-js driver
+    const tractRows = Array.isArray(tractResult) ? tractResult : [];
+
+    if (tractRows.length > 0) {
+      const tract = tractRows[0];
 
       censusTract = {
         geoid: tract.geoid,
         name: tract.name || `Census Tract ${tract.geoid}`,
-        countyFips: tract.countyFips,
-        landAreaSqm: tract.landAreaSqm ? parseFloat(tract.landAreaSqm) : null,
+        countyFips: tract.county_fips,
+        landAreaSqm: tract.land_area_sqm ? parseFloat(tract.land_area_sqm) : null,
         geometry: JSON.parse(tract.geometry),
       };
 
-      // For adjacent tracts, we'd use ST_Touches in production
-      // For now, return empty array
-      adjacentTracts = [];
+      // Step 3: Find adjacent tracts using PostGIS ST_Touches
+      const adjacentResult = await db.execute<{
+        geoid: string;
+        name: string | null;
+      }>(sql`
+        SELECT 
+          geoid, 
+          name
+        FROM census_tracts 
+        WHERE ST_Touches(
+          ST_GeomFromGeoJSON(geometry),
+          ST_GeomFromGeoJSON(${tract.geometry})
+        )
+        AND geoid != ${tract.geoid}
+        LIMIT 10
+      `);
+
+      const adjacentRows = Array.isArray(adjacentResult) ? adjacentResult : [];
+      adjacentTracts = adjacentRows.map((r) => ({
+        geoid: r.geoid,
+        name: r.name || `Census Tract ${r.geoid}`,
+      }));
     }
 
     return NextResponse.json({
@@ -85,7 +120,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Search error:', error);
     return NextResponse.json(
-      { error: 'Search failed' },
+      { error: 'Search failed', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

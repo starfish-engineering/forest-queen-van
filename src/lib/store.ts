@@ -5,7 +5,8 @@ import type {
   FilterState, 
   TimeHorizon, 
   PermitData,
-  Coordinates 
+  Coordinates,
+  TractScoreData,
 } from '@/types';
 
 // Default filter state - all enabled
@@ -42,6 +43,7 @@ interface AppState {
   subjectAddress: Address | null;
   subjectTract: CensusTractWithGeometry | null;
   adjacentTracts: CensusTractWithGeometry[];
+  tractScores: Record<TimeHorizon, TractScoreData> | null;
   
   // Filters
   activeFilters: FilterState;
@@ -61,6 +63,7 @@ interface AppState {
   setSubjectAddress: (address: Address | null) => void;
   setSubjectTract: (tract: CensusTractWithGeometry | null) => void;
   setAdjacentTracts: (tracts: CensusTractWithGeometry[]) => void;
+  setTractScores: (scores: Record<TimeHorizon, TractScoreData> | null) => void;
   setActiveFilters: (filters: FilterState) => void;
   toggleFilter: (category: keyof FilterState, subcategory: string) => void;
   setTimeHorizon: (horizon: TimeHorizon) => void;
@@ -78,6 +81,7 @@ export const useAppStore = create<AppState>((set) => ({
   subjectAddress: null,
   subjectTract: null,
   adjacentTracts: [],
+  tractScores: null,
   activeFilters: defaultFilters,
   timeHorizon: '1yr',
   includeAdjacentTracts: false,
@@ -93,6 +97,8 @@ export const useAppStore = create<AppState>((set) => ({
   setSubjectTract: (tract) => set({ subjectTract: tract }),
   
   setAdjacentTracts: (tracts) => set({ adjacentTracts: tracts }),
+  
+  setTractScores: (scores) => set({ tractScores: scores }),
   
   setActiveFilters: (filters) => set({ activeFilters: filters }),
   
@@ -126,6 +132,7 @@ export const useAppStore = create<AppState>((set) => ({
     subjectAddress: null,
     subjectTract: null,
     adjacentTracts: [],
+    tractScores: null,
     activeFilters: defaultFilters,
     timeHorizon: '1yr',
     includeAdjacentTracts: false,

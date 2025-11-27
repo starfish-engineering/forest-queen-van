@@ -41,7 +41,8 @@ export function Map() {
     mapZoom, 
     setMapView,
     subjectAddress,
-    subjectTract 
+    subjectTract,
+    timeHorizon,
   } = useAppStore();
 
   // Fetch nearby permits
@@ -79,7 +80,6 @@ export function Map() {
           border-radius: 50%;
           cursor: pointer;
           box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-          transition: transform 0.15s ease;
         `;
         
         // Create popup
@@ -109,11 +109,11 @@ export function Map() {
         `);
         
         el.addEventListener('mouseenter', () => {
-          el.style.transform = 'scale(1.5)';
+          el.style.boxShadow = '0 0 0 4px rgba(255,255,255,0.3), 0 2px 8px rgba(0,0,0,0.4)';
           el.style.zIndex = '10';
         });
         el.addEventListener('mouseleave', () => {
-          el.style.transform = 'scale(1)';
+          el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
           el.style.zIndex = '1';
         });
         
@@ -302,20 +302,36 @@ export function Map() {
     const source = map.current.getSource('census-tracts') as mapboxgl.GeoJSONSource;
     if (!source) return;
 
-    if (subjectTract) {
+    if (subjectTract && subjectTract.geometry) {
+      // Handle both Feature and raw Geometry formats from API
+      // The API returns raw Polygon/MultiPolygon geometry, not wrapped in Feature
+      const geom = subjectTract.geometry as unknown;
+      const isFeature = (geom as { type?: string }).type === 'Feature';
+      
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const feature: any = isFeature ? {
+        ...(geom as object),
+        properties: {
+          ...((geom as { properties?: object }).properties || {}),
+          isSubject: true,
+          geoid: subjectTract.geoid,
+        },
+      } : {
+        type: 'Feature',
+        geometry: geom,
+        properties: {
+          isSubject: true,
+          geoid: subjectTract.geoid,
+          name: subjectTract.name,
+        },
+      };
+
       source.setData({
         type: 'FeatureCollection',
-        features: [
-          {
-            ...subjectTract.geometry,
-            properties: {
-              ...subjectTract.geometry.properties,
-              isSubject: true,
-              geoid: subjectTract.geoid,
-            },
-          },
-        ],
+        features: [feature],
       });
+      
+      console.log('Census tract overlay updated:', subjectTract.geoid);
     } else {
       source.setData({
         type: 'FeatureCollection',
@@ -323,6 +339,78 @@ export function Map() {
       });
     }
   }, [subjectTract, mapLoaded]);
+
+  // Fetch and display heatmap data
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+    
+    // Only show heatmap when zoomed out (no subject address selected)
+    // When subject is selected, we show individual markers instead
+    if (subjectAddress) {
+      // Clear heatmap when address is selected
+      const source = map.current.getSource('permits-heatmap') as mapboxgl.GeoJSONSource;
+      if (source) {
+        source.setData({ type: 'FeatureCollection', features: [] });
+      }
+      return;
+    }
+
+    const fetchHeatmapData = async () => {
+      try {
+        const bounds = map.current?.getBounds();
+        if (!bounds) return;
+
+        const sw = bounds.getSouthWest();
+        const ne = bounds.getNorthEast();
+        const boundsParam = `${sw.lng},${sw.lat},${ne.lng},${ne.lat}`;
+
+        const response = await fetch(
+          `/api/heatmap?bounds=${boundsParam}&timeHorizon=${timeHorizon}`
+        );
+
+        if (!response.ok) throw new Error('Heatmap fetch failed');
+
+        const data = await response.json();
+
+        const source = map.current?.getSource('permits-heatmap') as mapboxgl.GeoJSONSource;
+        if (source && data.points) {
+          source.setData({
+            type: 'FeatureCollection',
+            features: data.points.map((p: { latitude: number; longitude: number; weight: number }) => ({
+              type: 'Feature',
+              geometry: {
+                type: 'Point',
+                coordinates: [p.longitude, p.latitude],
+              },
+              properties: {
+                weight: p.weight,
+              },
+            })),
+          });
+          console.log(`Heatmap updated with ${data.points.length} points`);
+        }
+      } catch (error) {
+        console.error('Failed to fetch heatmap:', error);
+      }
+    };
+
+    // Fetch initial heatmap data
+    fetchHeatmapData();
+
+    // Update heatmap when map moves (debounced)
+    let timeoutId: NodeJS.Timeout;
+    const handleMoveEnd = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(fetchHeatmapData, 500);
+    };
+
+    map.current.on('moveend', handleMoveEnd);
+
+    return () => {
+      clearTimeout(timeoutId);
+      map.current?.off('moveend', handleMoveEnd);
+    };
+  }, [mapLoaded, subjectAddress, timeHorizon]);
 
   // Fly to subject address when selected
   useEffect(() => {

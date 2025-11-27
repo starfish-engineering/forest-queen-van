@@ -15,7 +15,7 @@ export function SearchBar() {
   const debouncedQuery = useDebounce(query, 300);
   const { data: suggestions, isLoading } = useGeocodeAutocomplete(debouncedQuery);
   
-  const { setSubjectAddress, setSubjectTract, clearAll } = useAppStore();
+  const { setSubjectAddress, setSubjectTract, setTractScores, clearAll } = useAppStore();
 
   // Handle keyboard shortcut
   useEffect(() => {
@@ -53,16 +53,47 @@ export function SearchBar() {
     setQuery(suggestion.place_name);
     setIsOpen(false);
     
-    // Set subject address
+    const [longitude, latitude] = suggestion.center;
+    
+    // Set subject address immediately for map fly-to
     setSubjectAddress({
       formatted: suggestion.place_name,
-      longitude: suggestion.center[0],
-      latitude: suggestion.center[1],
+      longitude,
+      latitude,
     });
 
-    // TODO: Fetch census tract for this location
-    // This would call the API to get the tract
-  }, [setSubjectAddress]);
+    // Fetch census tract for this location
+    try {
+      const response = await fetch(
+        `/api/search?q=${encodeURIComponent(suggestion.place_name)}`
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.censusTract) {
+          setSubjectTract({
+            geoid: data.censusTract.geoid,
+            name: data.censusTract.name,
+            countyFips: data.censusTract.countyFips,
+            landAreaSqm: data.censusTract.landAreaSqm,
+            geometry: data.censusTract.geometry,
+          });
+          
+          // Fetch real scores from census API
+          const scoresResponse = await fetch(`/api/census/${data.censusTract.geoid}`);
+          if (scoresResponse.ok) {
+            const scoresData = await scoresResponse.json();
+            if (scoresData.tract?.scores) {
+              setTractScores(scoresData.tract.scores);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch census tract:', error);
+    }
+  }, [setSubjectAddress, setSubjectTract, setTractScores]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!suggestions?.length) return;

@@ -6,6 +6,31 @@ This document provides detailed specifications for each feature in the MVP. Feat
 
 ---
 
+## Product Context
+
+### Core Value Proposition
+
+Investors need **leading indicators** of neighborhood improvement or decline *before* it shows up in rent changes, vacancy rates, or property values. These leading indicators include:
+
+- Permit activity (especially multifamily, major CapEx)
+- New business openings
+- The *type* of retail opening (desirable by higher-income earners signals gentrification)
+
+### Two UX Modes
+
+The application serves two distinct user workflows:
+
+| Mode | User Intent | Entry Point | Status |
+|------|-------------|-------------|--------|
+| **Review** | "Tell me about this specific address" | Address search | MVP |
+| **Explore** | "Find promising neighborhoods" | Map browse | Future |
+
+**Review Mode (MVP Focus)**: Most users arrive with a property already selected. The tool serves as a **due diligence / investigation tool**—not primarily a screening tool. Users want to quickly assess: "Is this neighborhood improving or declining?"
+
+**Explore Mode (Future)**: For investors looking for undervalued properties by identifying neighborhoods with growth potential. Signals include: multifamily improvements increasing, new retail that's typically desirable by higher-income earners (specialty coffee, wine bars, boutique fitness, organic grocery).
+
+---
+
 ## Feature 1: Address Search & Geocoding
 
 ### User Story

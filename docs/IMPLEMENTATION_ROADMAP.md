@@ -310,6 +310,38 @@ interface AppState {
 
 ---
 
+## Future: Phase 8 - Explore Mode
+
+The MVP focuses on **Review Mode** (investigate a specific address). Future work would add **Explore Mode** for discovering promising neighborhoods.
+
+### 8.1 City-Wide Browse Entry Point
+- Alternative landing state: start on zoomed-out city view
+- Prominent heatmap showing investment activity hotspots
+- "Browse neighborhoods" vs "Search address" toggle
+
+### 8.2 Neighborhood Ranking
+- List view of top-scoring tracts
+- Sort by: composite score, permit velocity, business openings
+- Filter by borough
+
+### 8.3 Trend Detection
+- Track permit velocity changes over time (accelerating vs steady)
+- "Up and coming" neighborhoods: high velocity + moderate current activity
+- Visual indicators for trend direction
+
+### 8.4 Desirable Retail Weighting
+- Weight business types by "gentrification signal" strength:
+  - High: specialty coffee, wine bars, boutique fitness, organic grocery
+  - Medium: restaurants, co-working spaces
+  - Lower: general retail
+- Adjust neighborhood scores accordingly
+
+### 8.5 Mode Transition
+- Click neighborhood in Explore → enter Review mode for that area
+- Seamless data continuity between modes
+
+---
+
 ## Execution Order Summary
 
 | Step | Task | Dependencies |

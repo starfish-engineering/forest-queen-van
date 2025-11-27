@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/client';
-import { censusTracts, tractScores } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { censusTracts, permits } from '@/lib/db/schema';
+import { eq, sql, gte, and, isNotNull } from 'drizzle-orm';
+import { getDateCutoff } from '@/lib/utils/date';
 import type { TimeHorizon, TractScoreData } from '@/types';
+
+const TIME_HORIZONS: TimeHorizon[] = ['6mo', '1yr', '3yr'];
 
 export async function GET(
   request: NextRequest,
@@ -35,32 +38,62 @@ export async function GET(
     }
 
     const tract = tractResult[0];
+    const geometry = JSON.parse(tract.geometry);
+    const landAreaSqKm = tract.landAreaSqm 
+      ? parseFloat(tract.landAreaSqm) / 1_000_000 
+      : 0.1;
 
-    // Fetch scores for all time horizons
-    const scoresResult = await db
-      .select()
-      .from(tractScores)
-      .where(eq(tractScores.censusTractGeoid, geoid));
-
+    // Calculate scores dynamically for each time horizon
     const scores: Record<TimeHorizon, TractScoreData> = {
       '6mo': createDefaultScoreData(),
       '1yr': createDefaultScoreData(),
       '3yr': createDefaultScoreData(),
     };
 
-    scoresResult.forEach((score) => {
-      const horizon = score.timeHorizon as TimeHorizon;
-      if (horizon in scores) {
-        scores[horizon] = {
-          permitCount: parseInt(score.totalPermits?.toString() || '0'),
-          permitValue: parseFloat(score.totalPermitValue?.toString() || '0'),
-          permitDensity: parseFloat(score.permitDensity?.toString() || '0'),
-          businessCount: parseInt(score.businessCount?.toString() || '0'),
-          highEndBusinessCount: parseInt(score.highEndBusinessCount?.toString() || '0'),
-          compositeScore: parseFloat(score.compositeScore?.toString() || '0'),
-        };
-      }
-    });
+    for (const horizon of TIME_HORIZONS) {
+      const cutoffDate = getDateCutoff(horizon);
+      const cutoffStr = cutoffDate.toISOString().split('T')[0];
+
+      // Count permits within the tract geometry using PostGIS
+      const permitStats = await db.execute<{
+        count: string;
+        total_value: string;
+      }>(sql`
+        SELECT 
+          COUNT(*)::text as count,
+          COALESCE(SUM(estimated_cost::numeric), 0)::text as total_value
+        FROM permits
+        WHERE latitude IS NOT NULL 
+          AND longitude IS NOT NULL
+          AND filing_date >= ${cutoffStr}
+          AND ST_Contains(
+            ST_GeomFromGeoJSON(${tract.geometry}),
+            ST_SetSRID(ST_MakePoint(longitude::float, latitude::float), 4326)
+          )
+      `);
+
+      const stats = Array.isArray(permitStats) ? permitStats[0] : null;
+      const permitCount = stats ? parseInt(stats.count || '0') : 0;
+      const totalValue = stats ? parseFloat(stats.total_value || '0') : 0;
+      const permitDensity = permitCount / Math.max(landAreaSqKm, 0.01);
+
+      // Simple scoring: normalize to 0-100 scale
+      // Higher permits = higher score, capped at 100
+      const compositeScore = Math.min(100, Math.round(
+        (permitDensity * 2) + // Density contribution
+        (Math.log10(totalValue + 1) * 5) + // Value contribution (log scale)
+        (permitCount * 0.5) // Raw count contribution
+      ));
+
+      scores[horizon] = {
+        permitCount,
+        permitValue: totalValue,
+        permitDensity: Math.round(permitDensity * 100) / 100,
+        businessCount: 0, // Would need business data
+        highEndBusinessCount: 0,
+        compositeScore,
+      };
+    }
 
     const response: {
       tract: {
@@ -83,14 +116,11 @@ export async function GET(
         name: tract.name,
         countyFips: tract.countyFips,
         landAreaSqm: tract.landAreaSqm,
-        geometry: JSON.parse(tract.geometry),
+        geometry,
         scores,
       },
     };
 
-    // Fetch adjacent tracts if requested
-    // In production, this would use PostGIS ST_Touches
-    // For now, return empty array for adjacent tracts
     if (includeAdjacent) {
       response.adjacentTracts = [];
     }
