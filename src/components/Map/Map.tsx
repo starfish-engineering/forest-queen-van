@@ -676,19 +676,21 @@ export function Map() {
           
           // Adjust heatmap layer properties based on LOD level
           // Larger radius for coarser aggregation, smaller for finer detail
+          // Radius config - zoom ranges should match LOD thresholds
           const radiusConfig: Record<HeatmapLOD, mapboxgl.Expression> = {
-            borough: ['interpolate', ['linear'], ['zoom'], 8, 80, 10, 120],
-            neighborhood: ['interpolate', ['linear'], ['zoom'], 10, 50, 12, 80],
-            tract: ['interpolate', ['linear'], ['zoom'], 12, 30, 14, 50],
-            granular: ['interpolate', ['linear'], ['zoom'], 14, 15, 16, 25],
+            borough: ['interpolate', ['linear'], ['zoom'], 8, 100, 9, 80],
+            neighborhood: ['interpolate', ['linear'], ['zoom'], 9, 60, 11, 45],
+            tract: ['interpolate', ['linear'], ['zoom'], 11, 35, 13, 25],
+            granular: ['interpolate', ['linear'], ['zoom'], 13, 20, 16, 30],
           };
           
-          // Lower intensity at zoomed out levels to avoid "all red" heatmap
+          // Balanced intensity - visible but not all-red
+          // Make sure zoom ranges cover the actual LOD thresholds
           const intensityConfig: Record<HeatmapLOD, mapboxgl.Expression> = {
-            borough: ['interpolate', ['linear'], ['zoom'], 8, 0.1, 10, 0.2],
-            neighborhood: ['interpolate', ['linear'], ['zoom'], 10, 0.15, 12, 0.3],
-            tract: ['interpolate', ['linear'], ['zoom'], 12, 0.2, 14, 0.5],
-            granular: ['interpolate', ['linear'], ['zoom'], 14, 0.5, 16, 1.5],
+            borough: ['interpolate', ['linear'], ['zoom'], 8, 0.4, 9, 0.5],
+            neighborhood: ['interpolate', ['linear'], ['zoom'], 9, 0.5, 11, 0.7],
+            tract: ['interpolate', ['linear'], ['zoom'], 11, 0.7, 13, 1.0],
+            granular: ['interpolate', ['linear'], ['zoom'], 13, 1.0, 16, 2.0],
           };
 
           map.current?.setPaintProperty('permits-heat', 'heatmap-radius', radiusConfig[lodLevel] as unknown as number);
