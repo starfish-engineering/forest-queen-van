@@ -168,7 +168,7 @@ export function Map() {
     if (!mapContainer.current || map.current) return;
 
     // Set access token at runtime
-    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN?.trim();
     if (!token) {
       console.error('Mapbox token not found');
       return;

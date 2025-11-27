@@ -171,7 +171,7 @@ export function useGeocodeAutocomplete(query: string) {
     queryFn: async () => {
       if (!query || query.length < 3) return [];
       
-      const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+      const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN?.trim();
       if (!token) throw new Error('Mapbox token not configured');
       
       // NYC bounding box + proximity to Manhattan for better results

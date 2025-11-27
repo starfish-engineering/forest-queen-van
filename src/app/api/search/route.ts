@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/client';
 import { sql } from 'drizzle-orm';
 
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN?.trim() || '';
 
 // NYC bounding box
 const NYC_BBOX = '-74.259,40.477,-73.700,40.917';
@@ -15,6 +15,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       { error: 'Query must be at least 3 characters' },
       { status: 400 }
+    );
+  }
+
+  if (!MAPBOX_TOKEN) {
+    return NextResponse.json(
+      { error: 'Mapbox token not configured' },
+      { status: 500 }
     );
   }
 
