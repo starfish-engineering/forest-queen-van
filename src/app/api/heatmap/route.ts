@@ -40,26 +40,28 @@ export async function GET(request: NextRequest) {
     cutoff.setMonth(cutoff.getMonth() - monthsBack);
     const cutoffDate = cutoff.toISOString().split('T')[0];
 
-    // Build bounds filter
-    const boundsFilter = bounds 
-      ? sql`AND CAST(latitude AS NUMERIC) BETWEEN ${bounds.minLat} AND ${bounds.maxLat}
-            AND CAST(longitude AS NUMERIC) BETWEEN ${bounds.minLng} AND ${bounds.maxLng}`
-      : sql``;
-
-    // Query permits from database
-    const results = await db.execute(sql`
-      SELECT 
-        latitude,
-        longitude,
-        estimated_cost
-      FROM permits
-      WHERE filing_date >= ${cutoffDate}
-        AND latitude IS NOT NULL
-        AND longitude IS NOT NULL
-        ${boundsFilter}
-      ORDER BY filing_date DESC
-      LIMIT 2000
-    `);
+    // Query permits from database - no casting for index usage
+    let results;
+    if (bounds) {
+      results = await db.execute(sql`
+        SELECT latitude, longitude, estimated_cost
+        FROM permits
+        WHERE latitude BETWEEN ${bounds.minLat.toString()} AND ${bounds.maxLat.toString()}
+          AND longitude BETWEEN ${bounds.minLng.toString()} AND ${bounds.maxLng.toString()}
+          AND filing_date >= ${cutoffDate}
+        ORDER BY filing_date DESC
+        LIMIT 2000
+      `);
+    } else {
+      results = await db.execute(sql`
+        SELECT latitude, longitude, estimated_cost
+        FROM permits
+        WHERE filing_date >= ${cutoffDate}
+          AND latitude IS NOT NULL
+        ORDER BY filing_date DESC
+        LIMIT 2000
+      `);
+    }
 
     // Transform to heatmap points - db.execute returns array directly
     const points = (results as unknown as Array<{

@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     const minLng = lng - radius;
     const maxLng = lng + radius;
 
-    // Query permits from database
+    // Query permits from database - use direct comparison (no cast) for index usage
     const results = await db.execute(sql`
       SELECT 
         id,
@@ -53,11 +53,9 @@ export async function GET(request: NextRequest) {
         latitude,
         longitude
       FROM permits
-      WHERE filing_date >= ${cutoffDate}
-        AND latitude IS NOT NULL
-        AND longitude IS NOT NULL
-        AND latitude::numeric BETWEEN ${minLat} AND ${maxLat}
-        AND longitude::numeric BETWEEN ${minLng} AND ${maxLng}
+      WHERE latitude BETWEEN ${minLat.toString()} AND ${maxLat.toString()}
+        AND longitude BETWEEN ${minLng.toString()} AND ${maxLng.toString()}
+        AND filing_date >= ${cutoffDate}
       ORDER BY filing_date DESC
       LIMIT ${limit}
     `);
