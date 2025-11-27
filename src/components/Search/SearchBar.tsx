@@ -15,7 +15,7 @@ export function SearchBar() {
   const debouncedQuery = useDebounce(query, 300);
   const { data: suggestions, isLoading } = useGeocodeAutocomplete(debouncedQuery);
   
-  const { setSubjectAddress, setSubjectTract, setTractScores, clearAll } = useAppStore();
+  const { setSubjectAddress, setSubjectTract, setAdjacentTracts, setTractScores, clearAll } = useAppStore();
 
   // Handle keyboard shortcut
   useEffect(() => {
@@ -79,6 +79,16 @@ export function SearchBar() {
             landAreaSqm: data.censusTract.landAreaSqm,
             geometry: data.censusTract.geometry,
           });
+          
+          // Store adjacent tracts (basic info from search API)
+          if (data.adjacentTracts?.length > 0) {
+            setAdjacentTracts(data.adjacentTracts.map((t: { geoid: string; name: string }) => ({
+              geoid: t.geoid,
+              name: t.name,
+              countyFips: data.censusTract.countyFips,
+              geometry: null, // Will be fetched when toggle is enabled
+            })));
+          }
           
           // Fetch real scores from census API
           const scoresResponse = await fetch(`/api/census/${data.censusTract.geoid}`);

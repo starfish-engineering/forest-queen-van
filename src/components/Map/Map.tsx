@@ -42,6 +42,8 @@ export function Map() {
     setMapView,
     subjectAddress,
     subjectTract,
+    adjacentTracts,
+    includeAdjacentTracts,
     timeHorizon,
   } = useAppStore();
 
@@ -302,15 +304,15 @@ export function Map() {
     const source = map.current.getSource('census-tracts') as mapboxgl.GeoJSONSource;
     if (!source) return;
 
+    const features: GeoJSON.Feature[] = [];
+
     if (subjectTract && subjectTract.geometry) {
       // Handle both Feature and raw Geometry formats from API
-      // The API returns raw Polygon/MultiPolygon geometry, not wrapped in Feature
       const geom = subjectTract.geometry as unknown;
       const isFeature = (geom as { type?: string }).type === 'Feature';
       
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const feature: any = isFeature ? {
-        ...(geom as object),
+      const subjectFeature: GeoJSON.Feature = isFeature ? {
+        ...(geom as GeoJSON.Feature),
         properties: {
           ...((geom as { properties?: object }).properties || {}),
           isSubject: true,
@@ -318,7 +320,7 @@ export function Map() {
         },
       } : {
         type: 'Feature',
-        geometry: geom,
+        geometry: geom as GeoJSON.Geometry,
         properties: {
           isSubject: true,
           geoid: subjectTract.geoid,
@@ -326,19 +328,45 @@ export function Map() {
         },
       };
 
-      source.setData({
-        type: 'FeatureCollection',
-        features: [feature],
-      });
+      features.push(subjectFeature);
       
-      console.log('Census tract overlay updated:', subjectTract.geoid);
-    } else {
-      source.setData({
-        type: 'FeatureCollection',
-        features: [],
-      });
+      // Add adjacent tracts if enabled and available
+      if (includeAdjacentTracts && adjacentTracts.length > 0) {
+        adjacentTracts.forEach((tract) => {
+          if (tract.geometry) {
+            const adjGeom = tract.geometry as unknown;
+            const adjIsFeature = (adjGeom as { type?: string }).type === 'Feature';
+            
+            const adjFeature: GeoJSON.Feature = adjIsFeature ? {
+              ...(adjGeom as GeoJSON.Feature),
+              properties: {
+                ...((adjGeom as { properties?: object }).properties || {}),
+                isSubject: false,
+                geoid: tract.geoid,
+              },
+            } : {
+              type: 'Feature',
+              geometry: adjGeom as GeoJSON.Geometry,
+              properties: {
+                isSubject: false,
+                geoid: tract.geoid,
+                name: tract.name,
+              },
+            };
+            
+            features.push(adjFeature);
+          }
+        });
+      }
+      
+      console.log('Census tract overlay updated:', subjectTract.geoid, `(+${features.length - 1} adjacent)`);
     }
-  }, [subjectTract, mapLoaded]);
+
+    source.setData({
+      type: 'FeatureCollection',
+      features,
+    });
+  }, [subjectTract, adjacentTracts, includeAdjacentTracts, mapLoaded]);
 
   // Fetch and display heatmap data
   useEffect(() => {

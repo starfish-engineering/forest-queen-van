@@ -6,6 +6,7 @@ import { FilterPanel } from '@/components/Filters/FilterPanel';
 import { TimeToggle } from '@/components/Filters/TimeToggle';
 import { DetailDrawer } from '@/components/Drawer/DetailDrawer';
 import { ScoreCard } from '@/components/Score/ScoreCard';
+import { AdjacentTractsPanel } from '@/components/Score/AdjacentTractsPanel';
 import { useAppStore } from '@/lib/store';
 
 export default function Home() {
@@ -35,8 +36,9 @@ export default function Home() {
       
       {/* Score Card - Shows when tract is selected */}
       {subjectTract && (
-        <div className="absolute top-24 right-6 z-10 animate-slide-in-up">
+        <div className="absolute top-24 right-6 z-10 animate-slide-in-up space-y-3">
           <ScoreCard />
+          <AdjacentTractsPanel />
         </div>
       )}
       
