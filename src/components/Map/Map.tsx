@@ -397,13 +397,12 @@ export function Map() {
   }, [mapCenter.latitude, mapCenter.longitude, mapZoom, mapLoaded]);
 
   // Fetch and display heatmap data - ONLY in Scout mode
+  // Uses viewport-aware loading for performance
   useEffect(() => {
     if (!map.current || !mapLoaded) return;
     
     // Only show heatmap in Scout mode
-    // In Lookup mode, we show individual markers around the subject address
     if (mode === 'lookup') {
-      // Clear heatmap when in Lookup mode
       const source = map.current.getSource('permits-heatmap') as mapboxgl.GeoJSONSource;
       if (source) {
         source.setData({ type: 'FeatureCollection', features: [] });
@@ -411,7 +410,20 @@ export function Map() {
       return;
     }
 
+    let isFetching = false;
+    let abortController: AbortController | null = null;
+
     const fetchHeatmapData = async () => {
+      // Prevent concurrent fetches
+      if (isFetching) return;
+      isFetching = true;
+
+      // Cancel previous request if still pending
+      if (abortController) {
+        abortController.abort();
+      }
+      abortController = new AbortController();
+
       try {
         const bounds = map.current?.getBounds();
         if (!bounds) return;
@@ -421,7 +433,8 @@ export function Map() {
         const boundsParam = `${sw.lng},${sw.lat},${ne.lng},${ne.lat}`;
 
         const response = await fetch(
-          `/api/heatmap?bounds=${boundsParam}&timeHorizon=${timeHorizon}`
+          `/api/heatmap?bounds=${boundsParam}&timeHorizon=${timeHorizon}`,
+          { signal: abortController.signal }
         );
 
         if (!response.ok) throw new Error('Heatmap fetch failed');
@@ -443,27 +456,32 @@ export function Map() {
               },
             })),
           });
-          console.log(`Heatmap updated with ${data.points.length} points`);
+          console.log(`Heatmap: ${data.points.length} permits in viewport`);
         }
       } catch (error) {
-        console.error('Failed to fetch heatmap:', error);
+        if ((error as Error).name !== 'AbortError') {
+          console.error('Heatmap fetch error:', error);
+        }
+      } finally {
+        isFetching = false;
       }
     };
 
     // Fetch initial heatmap data
     fetchHeatmapData();
 
-    // Update heatmap when map moves (debounced)
+    // Update heatmap when map moves (debounced 800ms for performance)
     let timeoutId: NodeJS.Timeout;
     const handleMoveEnd = () => {
       clearTimeout(timeoutId);
-      timeoutId = setTimeout(fetchHeatmapData, 500);
+      timeoutId = setTimeout(fetchHeatmapData, 800);
     };
 
     map.current.on('moveend', handleMoveEnd);
 
     return () => {
       clearTimeout(timeoutId);
+      if (abortController) abortController.abort();
       map.current?.off('moveend', handleMoveEnd);
     };
   }, [mapLoaded, mode, timeHorizon]);

@@ -115,12 +115,10 @@ export async function queryPermits(options: PermitQueryOptions = {}): Promise<NY
 }
 
 /**
- * Get permits for heatmap display (city-wide, recent)
- * Note: We fetch all NYC permits and let Mapbox handle viewport filtering
- * because string-based lat/lng comparisons don't work well with negative numbers
+ * Get permits for heatmap display
+ * Fetches city-wide data that gets cached and filtered by viewport on the server
  */
 export async function getHeatmapPermits(options: {
-  bounds?: { minLat: number; maxLat: number; minLng: number; maxLng: number };
   monthsBack?: number;
 }): Promise<NYCPermit[]> {
   const { monthsBack = 12 } = options;
@@ -130,10 +128,11 @@ export async function getHeatmapPermits(options: {
   cutoff.setMonth(cutoff.getMonth() - monthsBack);
   const sinceDate = cutoff.toISOString().split('T')[0];
 
-  // Fetch city-wide, Mapbox will handle viewport filtering
+  // Fetch city-wide data - this gets cached by the API route
+  // and filtered by viewport for each request
   return queryPermits({
     sinceDate,
-    limit: 30000, // Get more data for full city coverage
+    limit: 15000, // Enough for good city coverage
   });
 }
 
