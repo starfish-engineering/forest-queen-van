@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/client';
-import { permits } from '@/lib/db/schema';
-import { sql, gte, and, isNotNull } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import type { TimeHorizon } from '@/types';
 
 // Map time horizon to months
@@ -44,45 +43,71 @@ export async function GET(request: NextRequest) {
     cutoff.setMonth(cutoff.getMonth() - monthsBack);
     const cutoffDate = cutoff.toISOString().split('T')[0];
 
-    // Determine grouping column based on level
-    let groupByCol: string;
+    let results;
+
     if (level === 'borough') {
-      groupByCol = 'borough';
+      results = await db.execute(sql`
+        SELECT 
+          borough as group_key,
+          borough,
+          COUNT(*) as permit_count,
+          COALESCE(SUM(estimated_cost::numeric), 0) as total_capital,
+          AVG(latitude::numeric) as avg_lat,
+          AVG(longitude::numeric) as avg_lng
+        FROM permits
+        WHERE filing_date >= ${cutoffDate}
+          AND latitude IS NOT NULL
+          AND longitude IS NOT NULL
+          AND borough IS NOT NULL
+        GROUP BY borough
+        ORDER BY COUNT(*) DESC
+      `);
     } else if (level === 'tract') {
-      groupByCol = 'census_tract_geoid';
+      results = await db.execute(sql`
+        SELECT 
+          census_tract_geoid as group_key,
+          borough,
+          census_tract_geoid,
+          COUNT(*) as permit_count,
+          COALESCE(SUM(estimated_cost::numeric), 0) as total_capital,
+          AVG(latitude::numeric) as avg_lat,
+          AVG(longitude::numeric) as avg_lng
+        FROM permits
+        WHERE filing_date >= ${cutoffDate}
+          AND latitude IS NOT NULL
+          AND longitude IS NOT NULL
+          AND census_tract_geoid IS NOT NULL
+        GROUP BY census_tract_geoid, borough
+        ORDER BY COUNT(*) DESC
+        LIMIT 2000
+      `);
     } else {
-      // neighborhood - group by borough + block as proxy
-      groupByCol = 'borough';
+      // neighborhood - group by borough + block
+      results = await db.execute(sql`
+        SELECT 
+          CONCAT(borough, '-', block) as group_key,
+          borough,
+          COUNT(*) as permit_count,
+          COALESCE(SUM(estimated_cost::numeric), 0) as total_capital,
+          AVG(latitude::numeric) as avg_lat,
+          AVG(longitude::numeric) as avg_lng
+        FROM permits
+        WHERE filing_date >= ${cutoffDate}
+          AND latitude IS NOT NULL
+          AND longitude IS NOT NULL
+          AND borough IS NOT NULL
+          AND block IS NOT NULL
+        GROUP BY borough, block
+        ORDER BY COUNT(*) DESC
+        LIMIT 2000
+      `);
     }
 
-    // Query aggregated data from database
-    const results = await db.execute(sql`
-      SELECT 
-        ${level === 'borough' ? sql`borough` : level === 'tract' ? sql`census_tract_geoid` : sql`CONCAT(borough, '-', block)`} as group_key,
-        borough,
-        census_tract_geoid,
-        COUNT(*) as permit_count,
-        COALESCE(SUM(CAST(estimated_cost AS NUMERIC)), 0) as total_capital,
-        AVG(CAST(latitude AS NUMERIC)) as avg_lat,
-        AVG(CAST(longitude AS NUMERIC)) as avg_lng
-      FROM permits
-      WHERE filing_date >= ${cutoffDate}
-        AND latitude IS NOT NULL
-        AND longitude IS NOT NULL
-      GROUP BY 
-        ${level === 'borough' ? sql`borough` : level === 'tract' ? sql`census_tract_geoid, borough` : sql`borough, block`},
-        borough,
-        census_tract_geoid
-      HAVING COUNT(*) >= 1
-      ORDER BY COUNT(*) DESC
-      LIMIT 2000
-    `);
-
-    // Transform results - db.execute returns array directly
+    // Transform results
     const aggregated: AggregatedPoint[] = (results as unknown as Array<{
       group_key: string;
       borough: string;
-      census_tract_geoid: string;
+      census_tract_geoid?: string;
       permit_count: string;
       total_capital: string;
       avg_lat: string;
