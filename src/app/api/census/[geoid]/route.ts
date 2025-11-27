@@ -85,15 +85,15 @@ export async function GET(
         (permitCount * 0.5) // Raw count contribution
       ));
 
-      scores[horizon] = {
+        scores[horizon] = {
         permitCount,
         permitValue: totalValue,
         permitDensity: Math.round(permitDensity * 100) / 100,
         businessCount: 0, // Would need business data
         highEndBusinessCount: 0,
         compositeScore,
-      };
-    }
+        };
+      }
 
     const response: {
       tract: {

@@ -78,8 +78,8 @@ export function SearchBar() {
             countyFips: data.censusTract.countyFips,
             landAreaSqm: data.censusTract.landAreaSqm,
             geometry: data.censusTract.geometry,
-          });
-          
+    });
+
           // Store adjacent tracts (basic info from search API)
           if (data.adjacentTracts?.length > 0) {
             setAdjacentTracts(data.adjacentTracts.map((t: { geoid: string; name: string }) => ({

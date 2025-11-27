@@ -329,11 +329,11 @@ export function Map() {
       
       const subjectFeature: GeoJSON.Feature = isFeature ? {
         ...(geom as GeoJSON.Feature),
-        properties: {
+            properties: {
           ...((geom as { properties?: object }).properties || {}),
-          isSubject: true,
-          geoid: subjectTract.geoid,
-        },
+              isSubject: true,
+              geoid: subjectTract.geoid,
+            },
       } : {
         type: 'Feature',
         geometry: geom as GeoJSON.Geometry,
@@ -378,8 +378,8 @@ export function Map() {
       console.log('Census tract overlay updated:', subjectTract.geoid, `(+${features.length - 1} adjacent)`);
     }
 
-    source.setData({
-      type: 'FeatureCollection',
+      source.setData({
+        type: 'FeatureCollection',
       features,
     });
   }, [subjectTract, adjacentTracts, includeAdjacentTracts, mapLoaded]);
@@ -393,14 +393,28 @@ export function Map() {
       zoom: mapZoom,
       duration: 1500,
       essential: true,
-    });
+      });
   }, [mapCenter.latitude, mapCenter.longitude, mapZoom, mapLoaded]);
 
   // Fetch and display heatmap data - ONLY in Scout mode
-  // Uses LOD (level of detail): aggregated tract data when zoomed out, granular permits when zoomed in
-  const GRANULAR_ZOOM_THRESHOLD = 13; // Switch to individual permits above this zoom
+  // Multi-level LOD for smooth transitions:
+  // - Borough level (zoom < 10): ~5 points
+  // - Neighborhood level (zoom 10-12): ~200 points  
+  // - Tract level (zoom 12-14): ~500 points
+  // - Granular permits (zoom >= 14): individual permits
+  type HeatmapLOD = 'borough' | 'neighborhood' | 'tract' | 'granular';
+  
+  const getLODLevel = (zoom: number): HeatmapLOD => {
+    if (zoom >= 14) return 'granular';
+    if (zoom >= 12) return 'tract';
+    if (zoom >= 10) return 'neighborhood';
+    return 'borough';
+  };
+
   const [heatmapVisible, setHeatmapVisible] = useState(false);
-  const [heatmapMode, setHeatmapMode] = useState<'aggregated' | 'granular'>('aggregated');
+  const [heatmapLOD, setHeatmapLOD] = useState<HeatmapLOD>('neighborhood');
+  const heatmapFetchRef = useRef<AbortController | null>(null);
+  const lastLODRef = useRef<HeatmapLOD | null>(null);
   
   useEffect(() => {
     if (!map.current || !mapLoaded) return;
@@ -419,33 +433,32 @@ export function Map() {
       return;
     }
 
-    let isFetching = false;
-    let abortController: AbortController | null = null;
-
     const fetchHeatmapData = async () => {
       const currentZoom = map.current?.getZoom() || 0;
+      const lodLevel = getLODLevel(currentZoom);
       
-      // Prevent concurrent fetches
-      if (isFetching) return;
-      isFetching = true;
-
-      // Cancel previous request if still pending
-      if (abortController) {
-        abortController.abort();
+      // Skip fetch if LOD level hasn't changed (except for granular which needs bounds)
+      if (lodLevel === lastLODRef.current && lodLevel !== 'granular') {
+        return;
       }
-      abortController = new AbortController();
+      
+      // Cancel previous request
+      if (heatmapFetchRef.current) {
+        heatmapFetchRef.current.abort();
+      }
+      const controller = new AbortController();
+      heatmapFetchRef.current = controller;
 
       try {
-        // Choose data source based on zoom level
-        const useGranular = currentZoom >= GRANULAR_ZOOM_THRESHOLD;
-        setHeatmapMode(useGranular ? 'granular' : 'aggregated');
+        setHeatmapLOD(lodLevel);
+        lastLODRef.current = lodLevel;
 
         let features: GeoJSON.Feature[] = [];
 
-        if (useGranular) {
+        if (lodLevel === 'granular') {
           // Zoomed in: use granular permit data
           const bounds = map.current?.getBounds();
-          if (!bounds) { isFetching = false; return; }
+          if (!bounds) return;
 
           const sw = bounds.getSouthWest();
           const ne = bounds.getNorthEast();
@@ -453,7 +466,7 @@ export function Map() {
 
           const response = await fetch(
             `/api/heatmap?bounds=${boundsParam}&timeHorizon=${timeHorizon}`,
-            { signal: abortController.signal }
+            { signal: controller.signal }
           );
 
           if (!response.ok) throw new Error('Granular heatmap fetch failed');
@@ -467,24 +480,24 @@ export function Map() {
 
           console.log(`Heatmap (granular): ${features.length} permits`);
         } else {
-          // Zoomed out: use aggregated tract-level data (~200 points vs 30k!)
+          // Aggregated levels: borough, neighborhood, or tract
           const response = await fetch(
-            `/api/heatmap/aggregated?timeHorizon=${timeHorizon}`,
-            { signal: abortController.signal }
+            `/api/heatmap/aggregated?timeHorizon=${timeHorizon}&level=${lodLevel}`,
+            { signal: controller.signal }
           );
 
           if (!response.ok) throw new Error('Aggregated heatmap fetch failed');
           const data = await response.json();
 
-          // Convert tract data to heatmap points with capital-based weights
-          // Find max values for normalization
-          const maxCapital = Math.max(...data.tracts.map((t: { totalCapital: number }) => t.totalCapital));
-          const maxCount = Math.max(...data.tracts.map((t: { permitCount: number }) => t.permitCount));
+          // Convert aggregated data to heatmap points with capital-based weights
+          const points = data.points || [];
+          const maxCapital = Math.max(...points.map((t: { totalCapital: number }) => t.totalCapital), 1);
+          const maxCount = Math.max(...points.map((t: { permitCount: number }) => t.permitCount), 1);
           
-          features = (data.tracts || []).map((t: { lat: number; lng: number; totalCapital: number; permitCount: number }) => {
+          features = points.map((t: { lat: number; lng: number; totalCapital: number; permitCount: number }) => {
             // Normalize weights relative to max values (0-1 range, then scale to 1-10)
-            const capitalNorm = maxCapital > 0 ? t.totalCapital / maxCapital : 0;
-            const countNorm = maxCount > 0 ? t.permitCount / maxCount : 0;
+            const capitalNorm = t.totalCapital / maxCapital;
+            const countNorm = t.permitCount / maxCount;
             
             // Weight more by capital, but also consider count
             const weight = 1 + (capitalNorm * 6) + (countNorm * 3);
@@ -496,7 +509,8 @@ export function Map() {
             };
           });
 
-          console.log(`Heatmap (aggregated): ${features.length} tracts, ~${data.tracts?.reduce((s: number, t: { permitCount: number }) => s + t.permitCount, 0) || 0} permits`);
+          const totalPermits = points.reduce((s: number, t: { permitCount: number }) => s + t.permitCount, 0);
+          console.log(`Heatmap (${lodLevel}): ${features.length} points, ~${totalPermits} permits`);
         }
 
         const source = map.current?.getSource('permits-heatmap') as mapboxgl.GeoJSONSource;
@@ -504,41 +518,29 @@ export function Map() {
           source.setData({ type: 'FeatureCollection', features });
           setHeatmapVisible(features.length > 0);
           
-          // Adjust heatmap layer properties based on data type
-          if (useGranular) {
-            // Granular mode: smaller radius for individual permits
-            map.current?.setPaintProperty('permits-heat', 'heatmap-radius', [
-              'interpolate', ['linear'], ['zoom'],
-              10, 15,
-              15, 30,
-            ]);
-            map.current?.setPaintProperty('permits-heat', 'heatmap-intensity', [
-              'interpolate', ['linear'], ['zoom'],
-              10, 1,
-              15, 3,
-            ]);
-          } else {
-            // Aggregated mode: much larger radius for neighborhood-level data
-            map.current?.setPaintProperty('permits-heat', 'heatmap-radius', [
-              'interpolate', ['linear'], ['zoom'],
-              8, 40,
-              11, 60,
-              13, 80,
-            ]);
-            map.current?.setPaintProperty('permits-heat', 'heatmap-intensity', [
-              'interpolate', ['linear'], ['zoom'],
-              8, 0.5,
-              11, 1,
-              13, 1.5,
-            ]);
-          }
+          // Adjust heatmap layer properties based on LOD level
+          // Larger radius for coarser aggregation, smaller for finer detail
+          const radiusConfig: Record<HeatmapLOD, mapboxgl.Expression> = {
+            borough: ['interpolate', ['linear'], ['zoom'], 8, 80, 10, 120],
+            neighborhood: ['interpolate', ['linear'], ['zoom'], 10, 50, 12, 80],
+            tract: ['interpolate', ['linear'], ['zoom'], 12, 30, 14, 50],
+            granular: ['interpolate', ['linear'], ['zoom'], 14, 15, 16, 25],
+          };
+          
+          const intensityConfig: Record<HeatmapLOD, mapboxgl.Expression> = {
+            borough: ['interpolate', ['linear'], ['zoom'], 8, 0.3, 10, 0.6],
+            neighborhood: ['interpolate', ['linear'], ['zoom'], 10, 0.5, 12, 1],
+            tract: ['interpolate', ['linear'], ['zoom'], 12, 0.8, 14, 1.5],
+            granular: ['interpolate', ['linear'], ['zoom'], 14, 1, 16, 3],
+          };
+
+          map.current?.setPaintProperty('permits-heat', 'heatmap-radius', radiusConfig[lodLevel] as unknown as number);
+          map.current?.setPaintProperty('permits-heat', 'heatmap-intensity', intensityConfig[lodLevel] as unknown as number);
         }
       } catch (error) {
         if ((error as Error).name !== 'AbortError') {
           console.error('Heatmap fetch error:', error);
         }
-      } finally {
-        isFetching = false;
       }
     };
 
@@ -556,8 +558,9 @@ export function Map() {
 
     return () => {
       clearTimeout(timeoutId);
-      if (abortController) abortController.abort();
+      if (heatmapFetchRef.current) heatmapFetchRef.current.abort();
       map.current?.off('moveend', handleMoveEnd);
+      lastLODRef.current = null; // Reset LOD on cleanup so data refetches
     };
   }, [mapLoaded, mode, timeHorizon]);
 
@@ -638,18 +641,29 @@ export function Map() {
         </div>
       )}
       
-      {/* Scout mode: Show data mode indicator */}
+      {/* Scout mode: Show LOD level indicator */}
       {mode === 'scout' && mapLoaded && heatmapVisible && (
         <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
           <div className="glass px-3 py-1.5 rounded-full text-xs"
                style={{ border: '1px solid var(--border-default)', opacity: 0.8 }}>
-            {heatmapMode === 'aggregated' ? (
+            {heatmapLOD === 'borough' && (
               <span className="text-[var(--text-secondary)]">
-                🗺️ Neighborhood view • Zoom in for permits
+                🏙️ City-wide • Zoom for neighborhoods
               </span>
-            ) : (
+            )}
+            {heatmapLOD === 'neighborhood' && (
+              <span className="text-[var(--text-secondary)]">
+                🗺️ Neighborhoods • Zoom for tracts
+              </span>
+            )}
+            {heatmapLOD === 'tract' && (
+              <span className="text-amber-400">
+                📊 Census tracts • Zoom for permits
+              </span>
+            )}
+            {heatmapLOD === 'granular' && (
               <span className="text-cyan-400">
-                📍 Permit-level view
+                📍 Individual permits
               </span>
             )}
           </div>

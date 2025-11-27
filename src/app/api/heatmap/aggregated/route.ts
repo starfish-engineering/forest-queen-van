@@ -9,33 +9,51 @@ const HORIZON_MONTHS: Record<TimeHorizon, number> = {
   '3yr': 36,
 };
 
-// Cache for aggregated data (by time horizon)
+// Aggregation levels for LOD
+export type AggregationLevel = 'borough' | 'neighborhood' | 'tract';
+
+// Cache for aggregated data (by time horizon + level)
 const aggregatedCache = new Map<string, { 
-  data: AggregatedTract[]; 
+  data: AggregatedPoint[]; 
   timestamp: number;
 }>();
 const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
-interface AggregatedTract {
-  nta: string;
-  censusTract: string;
+interface AggregatedPoint {
+  key: string;
+  borough?: string;
+  nta?: string;
+  censusTract?: string;
   permitCount: number;
   totalCapital: number;
   lat: number;
   lng: number;
 }
 
+// Borough center coordinates for city-wide view
+const BOROUGH_CENTERS: Record<string, { lat: number; lng: number }> = {
+  'MANHATTAN': { lat: 40.7831, lng: -73.9712 },
+  'BROOKLYN': { lat: 40.6782, lng: -73.9442 },
+  'QUEENS': { lat: 40.7282, lng: -73.7949 },
+  'BRONX': { lat: 40.8448, lng: -73.8648 },
+  'STATEN ISLAND': { lat: 40.5795, lng: -74.1502 },
+};
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const timeHorizon = (searchParams.get('timeHorizon') || '1yr') as TimeHorizon;
+  const level = (searchParams.get('level') || 'neighborhood') as AggregationLevel;
+
+  const cacheKey = `${timeHorizon}-${level}`;
 
   try {
     // Check cache
-    const cached = aggregatedCache.get(timeHorizon);
+    const cached = aggregatedCache.get(cacheKey);
     if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
       return NextResponse.json({
-        tracts: cached.data,
+        points: cached.data,
         count: cached.data.length,
+        level,
         cached: true,
       });
     }
@@ -48,13 +66,15 @@ export async function GET(request: NextRequest) {
     // Fetch permits (limited for aggregation)
     const permits = await queryPermits({
       sinceDate,
-      limit: 20000,
+      limit: 25000,
     });
 
-    // Aggregate by NTA (Neighborhood Tabulation Area) or census tract
-    const tractMap = new Map<string, {
-      nta: string;
-      censusTract: string;
+    // Aggregate based on level
+    const pointMap = new Map<string, {
+      key: string;
+      borough?: string;
+      nta?: string;
+      censusTract?: string;
       permitCount: number;
       totalCapital: number;
       lats: number[];
@@ -62,16 +82,37 @@ export async function GET(request: NextRequest) {
     }>();
 
     for (const permit of permits) {
-      // Use NTA as primary key, fall back to census tract
-      const key = permit.nta || permit.census_tract || 'unknown';
+      let key: string;
+      let borough: string | undefined;
+      let nta: string | undefined;
+      let censusTract: string | undefined;
+
+      // Determine grouping key based on level
+      if (level === 'borough') {
+        key = permit.borough || 'unknown';
+        borough = permit.borough;
+      } else if (level === 'neighborhood') {
+        key = permit.nta || permit.borough || 'unknown';
+        nta = permit.nta;
+        borough = permit.borough;
+      } else {
+        // tract level
+        key = permit.census_tract || permit.nta || 'unknown';
+        censusTract = permit.census_tract;
+        nta = permit.nta;
+        borough = permit.borough;
+      }
+
       if (key === 'unknown') continue;
 
       const transformed = transformPermit(permit);
       if (!transformed.latitude || !transformed.longitude) continue;
 
-      const existing = tractMap.get(key) || {
-        nta: permit.nta || '',
-        censusTract: permit.census_tract || '',
+      const existing = pointMap.get(key) || {
+        key,
+        borough,
+        nta,
+        censusTract,
         permitCount: 0,
         totalCapital: 0,
         lats: [],
@@ -83,30 +124,46 @@ export async function GET(request: NextRequest) {
       existing.lats.push(transformed.latitude);
       existing.lngs.push(transformed.longitude);
 
-      tractMap.set(key, existing);
+      pointMap.set(key, existing);
     }
 
     // Convert to array with averaged coordinates
-    const aggregated: AggregatedTract[] = Array.from(tractMap.values())
+    const aggregated: AggregatedPoint[] = Array.from(pointMap.values())
       .filter(t => t.permitCount >= 1 && t.lats.length > 0)
-      .map(t => ({
-        nta: t.nta,
-        censusTract: t.censusTract,
-        permitCount: t.permitCount,
-        totalCapital: t.totalCapital,
-        lat: t.lats.reduce((a, b) => a + b, 0) / t.lats.length,
-        lng: t.lngs.reduce((a, b) => a + b, 0) / t.lngs.length,
-      }));
+      .map(t => {
+        // For borough level, use predefined centers for better visualization
+        let lat = t.lats.reduce((a, b) => a + b, 0) / t.lats.length;
+        let lng = t.lngs.reduce((a, b) => a + b, 0) / t.lngs.length;
+        
+        if (level === 'borough' && t.borough && BOROUGH_CENTERS[t.borough]) {
+          lat = BOROUGH_CENTERS[t.borough].lat;
+          lng = BOROUGH_CENTERS[t.borough].lng;
+        }
+
+        return {
+          key: t.key,
+          borough: t.borough,
+          nta: t.nta,
+          censusTract: t.censusTract,
+          permitCount: t.permitCount,
+          totalCapital: t.totalCapital,
+          lat,
+          lng,
+        };
+      });
 
     // Cache the result
-    aggregatedCache.set(timeHorizon, {
+    aggregatedCache.set(cacheKey, {
       data: aggregated,
       timestamp: Date.now(),
     });
 
+    console.log(`Aggregated heatmap (${level}): ${aggregated.length} points from ${permits.length} permits`);
+
     return NextResponse.json({
-      tracts: aggregated,
+      points: aggregated,
       count: aggregated.length,
+      level,
       cached: false,
     });
   } catch (error) {
@@ -117,4 +174,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

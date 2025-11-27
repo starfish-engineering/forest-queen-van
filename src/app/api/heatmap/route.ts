@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     let bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number } | undefined;
     
     if (boundsParam) {
-      const [swLng, swLat, neLng, neLat] = boundsParam.split(',').map(parseFloat);
+    const [swLng, swLat, neLng, neLat] = boundsParam.split(',').map(parseFloat);
       if (![swLng, swLat, neLng, neLat].some(isNaN)) {
         bounds = {
           minLat: swLat,

@@ -74,12 +74,12 @@ export async function GET(request: NextRequest) {
         .map((p) => {
           const transformed = transformPermit(p);
           return {
-            type: 'Feature' as const,
-            geometry: {
-              type: 'Point' as const,
+        type: 'Feature' as const,
+        geometry: {
+          type: 'Point' as const,
               coordinates: [transformed.longitude!, transformed.latitude!],
-            },
-            properties: {
+        },
+        properties: {
               id: transformed.id,
               permitNumber: transformed.permitNumber,
               permitType: transformed.permitType,
@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
               address: transformed.address,
               borough: transformed.borough,
               estimatedCost: transformed.estimatedCost,
-            },
+        },
           };
         }),
     };

@@ -52,41 +52,41 @@ export function ScoreCard() {
           </>
         ) : (
           <>
-            {/* Large Score Number */}
-            <div
-              className="inline-flex items-center justify-center w-20 h-20 rounded-2xl border-2 mb-3"
-              style={{ 
-                borderColor: scoreColor,
-                backgroundColor: `${scoreColor}15`,
-              }}
-            >
-              <span 
-                className="font-mono text-4xl font-bold"
-                style={{ color: scoreColor }}
-              >
-                {score}
-              </span>
-            </div>
+        {/* Large Score Number */}
+        <div
+          className="inline-flex items-center justify-center w-20 h-20 rounded-2xl border-2 mb-3"
+          style={{ 
+            borderColor: scoreColor,
+            backgroundColor: `${scoreColor}15`,
+          }}
+        >
+          <span 
+            className="font-mono text-4xl font-bold"
+            style={{ color: scoreColor }}
+          >
+            {score}
+          </span>
+        </div>
 
-            {/* Score Label */}
-            <p className="text-sm font-medium text-[var(--text-secondary)] mb-4">
-              {scoreLabel}
-            </p>
+        {/* Score Label */}
+        <p className="text-sm font-medium text-[var(--text-secondary)] mb-4">
+          {scoreLabel}
+        </p>
 
-            {/* Progress Bar */}
-            <div className="relative h-2 bg-[var(--bg-tertiary)] rounded-full overflow-hidden mb-2">
-              <div
-                className="absolute left-0 top-0 h-full rounded-full transition-all duration-500"
-                style={{ 
+        {/* Progress Bar */}
+        <div className="relative h-2 bg-[var(--bg-tertiary)] rounded-full overflow-hidden mb-2">
+          <div
+            className="absolute left-0 top-0 h-full rounded-full transition-all duration-500"
+            style={{ 
                   width: `${Math.min(score, 100)}%`,
-                  backgroundColor: scoreColor,
-                }}
-              />
-            </div>
-            <div className="flex justify-between text-xs text-[var(--text-tertiary)]">
-              <span>0</span>
-              <span>{score}/100</span>
-            </div>
+              backgroundColor: scoreColor,
+            }}
+          />
+        </div>
+        <div className="flex justify-between text-xs text-[var(--text-tertiary)]">
+          <span>0</span>
+          <span>{score}/100</span>
+        </div>
           </>
         )}
       </div>
@@ -114,16 +114,16 @@ export function ScoreCard() {
               <li className="flex items-center justify-between">
                 <span>Permits filed</span>
                 <span className="font-medium text-[var(--text-primary)]">{permitCount}</span>
-              </li>
+          </li>
               <li className="flex items-center justify-between">
                 <span>Total value</span>
                 <span className="font-medium text-[var(--text-primary)]">{formatCurrency(permitValue)}</span>
-              </li>
+          </li>
               <li className="flex items-center justify-between">
                 <span>Density (per km²)</span>
                 <span className="font-medium text-[var(--text-primary)]">{permitDensity.toFixed(1)}</span>
-              </li>
-            </ul>
+          </li>
+        </ul>
             {permitCount === 0 && (
               <p className="mt-3 text-[10px] text-[var(--text-tertiary)] italic">
                 No permits filed in this tract during the selected period.
