@@ -500,9 +500,9 @@ export function Map() {
   type HeatmapLOD = 'borough' | 'neighborhood' | 'tract' | 'granular';
   
   const getLODLevel = (zoom: number): HeatmapLOD => {
-    if (zoom >= 14) return 'granular';
-    if (zoom >= 12) return 'tract';
-    if (zoom >= 10) return 'neighborhood';
+    if (zoom >= 13) return 'granular';  // Show individual permits earlier
+    if (zoom >= 11) return 'tract';
+    if (zoom >= 9) return 'neighborhood';
     return 'borough';
   };
 
