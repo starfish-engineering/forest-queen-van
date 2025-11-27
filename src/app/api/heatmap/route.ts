@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getHeatmapPermits, transformPermit } from '@/lib/nyc-open-data';
+import { db } from '@/lib/db/client';
+import { sql } from 'drizzle-orm';
 import type { TimeHorizon } from '@/types';
 
 // Map time horizon to months
@@ -8,10 +9,6 @@ const HORIZON_MONTHS: Record<TimeHorizon, number> = {
   '1yr': 12,
   '3yr': 36,
 };
-
-// Simple in-memory cache for permit data (refreshes every 5 min)
-let permitCache: { data: Awaited<ReturnType<typeof getHeatmapPermits>>; timestamp: number; timeHorizon: string } | null = null;
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -24,76 +21,66 @@ export async function GET(request: NextRequest) {
     let bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number } | undefined;
     
     if (boundsParam) {
-    const [swLng, swLat, neLng, neLat] = boundsParam.split(',').map(parseFloat);
+      const [swLng, swLat, neLng, neLat] = boundsParam.split(',').map(parseFloat);
       if (![swLng, swLat, neLng, neLat].some(isNaN)) {
+        // Add 20% buffer around viewport
+        const latBuffer = (neLat - swLat) * 0.2;
+        const lngBuffer = (neLng - swLng) * 0.2;
         bounds = {
-          minLat: swLat,
-          maxLat: neLat,
-          minLng: swLng,
-          maxLng: neLng,
+          minLat: swLat - latBuffer,
+          maxLat: neLat + latBuffer,
+          minLng: swLng - lngBuffer,
+          maxLng: neLng + lngBuffer,
         };
       }
     }
 
     const monthsBack = HORIZON_MONTHS[timeHorizon] || 12;
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - monthsBack);
+    const cutoffDate = cutoff.toISOString().split('T')[0];
 
-    // Check cache - reuse if fresh and same time horizon
-    const now = Date.now();
-    let permits;
-    
-    if (permitCache && 
-        permitCache.timeHorizon === timeHorizon && 
-        (now - permitCache.timestamp) < CACHE_TTL) {
-      permits = permitCache.data;
-    } else {
-      // Fetch fresh data from NYC Open Data
-      permits = await getHeatmapPermits({ monthsBack });
-      permitCache = { data: permits, timestamp: now, timeHorizon };
-    }
+    // Build bounds filter
+    const boundsFilter = bounds 
+      ? sql`AND CAST(latitude AS NUMERIC) BETWEEN ${bounds.minLat} AND ${bounds.maxLat}
+            AND CAST(longitude AS NUMERIC) BETWEEN ${bounds.minLng} AND ${bounds.maxLng}`
+      : sql``;
 
-    // Apply viewport filtering client-side for fast response
-    let filteredPermits = permits;
-    if (bounds) {
-      // Add 20% buffer around viewport
-      const latBuffer = (bounds.maxLat - bounds.minLat) * 0.2;
-      const lngBuffer = (bounds.maxLng - bounds.minLng) * 0.2;
-      
-      filteredPermits = permits.filter(p => {
-        if (!p.gis_latitude || !p.gis_longitude) return false;
-        const lat = parseFloat(p.gis_latitude);
-        const lng = parseFloat(p.gis_longitude);
-        return (
-          lat >= bounds!.minLat - latBuffer &&
-          lat <= bounds!.maxLat + latBuffer &&
-          lng >= bounds!.minLng - lngBuffer &&
-          lng <= bounds!.maxLng + lngBuffer
-        );
-      });
-    }
+    // Query permits from database
+    const results = await db.execute(sql`
+      SELECT 
+        latitude,
+        longitude,
+        estimated_cost
+      FROM permits
+      WHERE filing_date >= ${cutoffDate}
+        AND latitude IS NOT NULL
+        AND longitude IS NOT NULL
+        ${boundsFilter}
+      ORDER BY filing_date DESC
+      LIMIT 2000
+    `);
 
-    // Transform to heatmap points with weight based on capital
-    // Limit to 2000 permits max to prevent slowness at high zoom
-    const MAX_POINTS = 2000;
-    const limitedPermits = filteredPermits.length > MAX_POINTS 
-      ? filteredPermits.slice(0, MAX_POINTS)
-      : filteredPermits;
-    
-    const points = limitedPermits
-      .filter(p => p.gis_latitude && p.gis_longitude)
-      .map(p => {
-        const transformed = transformPermit(p);
-        const cost = transformed.estimatedCost || 0;
+    // Transform to heatmap points
+    const points = (results.rows as Array<{
+      latitude: string;
+      longitude: string;
+      estimated_cost: string | null;
+    }>)
+      .filter(r => r.latitude && r.longitude)
+      .map(r => {
+        const cost = parseFloat(r.estimated_cost || '0') || 0;
         
-        // Weight by capital investment - higher weights for visibility
+        // Weight by capital investment
         let weight = 2;
-        if (cost > 1000000) weight = 10;      // $1M+ = max intensity
-        else if (cost > 500000) weight = 8;   // $500K-1M
-        else if (cost > 100000) weight = 6;   // $100K-500K
-        else if (cost > 50000) weight = 4;    // $50K-100K
+        if (cost > 1000000) weight = 10;
+        else if (cost > 500000) weight = 8;
+        else if (cost > 100000) weight = 6;
+        else if (cost > 50000) weight = 4;
 
         return {
-          latitude: transformed.latitude!,
-          longitude: transformed.longitude!,
+          latitude: parseFloat(r.latitude),
+          longitude: parseFloat(r.longitude),
           weight,
         };
       });
@@ -101,8 +88,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       points,
       total: points.length,
-      truncated: filteredPermits.length > MAX_POINTS,
-      cached: permitCache?.timestamp === now ? false : true,
+      source: 'database',
     });
   } catch (error) {
     console.error('Heatmap query error:', error);
@@ -112,4 +98,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

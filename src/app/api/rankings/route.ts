@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getRankingsData, transformPermit } from '@/lib/nyc-open-data';
+import { db } from '@/lib/db/client';
+import { sql } from 'drizzle-orm';
 import type { TimeHorizon } from '@/types';
 
-// Borough info - DOB NOW uses full uppercase names
+// Borough info
 const BOROUGHS: Record<string, { name: string; fips: string }> = {
   'MANHATTAN': { name: 'Manhattan', fips: '36061' },
   'BRONX': { name: 'Bronx', fips: '36005' },
@@ -34,117 +35,104 @@ export interface RankedTract {
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const timeHorizon = (searchParams.get('timeHorizon') || '1yr') as TimeHorizon;
-  const borough = searchParams.get('borough'); // optional filter
+  const borough = searchParams.get('borough');
   const limit = parseInt(searchParams.get('limit') || '50');
 
   try {
     const monthsBack = HORIZON_MONTHS[timeHorizon] || 12;
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - monthsBack);
+    const cutoffDate = cutoff.toISOString().split('T')[0];
     
-    // Calculate midpoint for trend analysis
+    // Midpoint for trend analysis
     const midpoint = new Date();
     midpoint.setMonth(midpoint.getMonth() - Math.floor(monthsBack / 2));
-    const midpointStr = midpoint.toISOString().split('T')[0];
+    const midpointDate = midpoint.toISOString().split('T')[0];
 
-    // Fetch live data from NYC Open Data
-    const permits = await getRankingsData({
-      monthsBack,
-      borough: borough && borough !== 'all' ? borough : undefined,
-    });
+    // Build borough filter
+    const boroughFilter = borough && borough !== 'all' 
+      ? sql`AND UPPER(borough) = ${borough.toUpperCase()}`
+      : sql``;
 
-    // Aggregate by block
-    const blockStats = new Map<string, {
+    // Query aggregated data from database
+    const results = await db.execute(sql`
+      SELECT 
+        borough,
+        block,
+        COUNT(*) as permit_count,
+        COALESCE(SUM(CAST(estimated_cost AS NUMERIC)), 0) as permit_value,
+        COUNT(*) FILTER (WHERE filing_date >= ${midpointDate}) as recent_count,
+        COUNT(*) FILTER (WHERE filing_date < ${midpointDate}) as older_count,
+        AVG(CAST(latitude AS NUMERIC)) as avg_lat,
+        AVG(CAST(longitude AS NUMERIC)) as avg_lng
+      FROM permits
+      WHERE filing_date >= ${cutoffDate}
+        AND latitude IS NOT NULL
+        AND longitude IS NOT NULL
+        AND block IS NOT NULL
+        ${boroughFilter}
+      GROUP BY borough, block
+      HAVING COUNT(*) >= 2
+      ORDER BY COUNT(*) DESC, SUM(CAST(estimated_cost AS NUMERIC)) DESC
+      LIMIT ${limit}
+    `);
+
+    // Transform results
+    const tracts: RankedTract[] = (results.rows as Array<{
       borough: string;
       block: string;
-      permitCount: number;
-      permitValue: number;
-      recentCount: number;
-      olderCount: number;
-      lats: number[];
-      lngs: number[];
-    }>();
+      permit_count: string;
+      permit_value: string;
+      recent_count: string;
+      older_count: string;
+      avg_lat: string;
+      avg_lng: string;
+    }>)
+      .filter(r => r.avg_lat && r.avg_lng)
+      .map((r, index) => {
+        const permitCount = parseInt(r.permit_count) || 0;
+        const permitValue = parseFloat(r.permit_value) || 0;
+        const recentCount = parseInt(r.recent_count) || 0;
+        const olderCount = parseInt(r.older_count) || 0;
 
-    for (const permit of permits) {
-      if (!permit.block || !permit.gis_latitude || !permit.gis_longitude) continue;
-      
-      const key = `${permit.borough}-${permit.block}`;
-      const existing = blockStats.get(key) || {
-        borough: permit.borough || '1',
-        block: permit.block,
-        permitCount: 0,
-        permitValue: 0,
-        recentCount: 0,
-        olderCount: 0,
-        lats: [],
-        lngs: [],
-      };
+        // Calculate trend
+        let trend: 'rising' | 'steady' | 'cooling' = 'steady';
+        if (olderCount > 0) {
+          const ratio = recentCount / olderCount;
+          if (ratio > 1.3) trend = 'rising';
+          else if (ratio < 0.7) trend = 'cooling';
+        } else if (recentCount > 0) {
+          trend = 'rising';
+        }
 
-      const transformed = transformPermit(permit);
-      const filingDate = permit.filing_date?.split('T')[0] || '';
-      
-      existing.permitCount++;
-      existing.permitValue += transformed.estimatedCost || 0;
-      existing.lats.push(transformed.latitude!);
-      existing.lngs.push(transformed.longitude!);
-      
-      if (filingDate >= midpointStr) {
-        existing.recentCount++;
-      } else {
-        existing.olderCount++;
-      }
-      
-      blockStats.set(key, existing);
-    }
+        // Calculate score
+        const score = Math.min(100, Math.round(
+          (permitCount * 5) + (Math.log10(permitValue + 1) * 3)
+        ));
 
-    // Convert to ranked array
-    const ranked = Array.from(blockStats.values())
-      .filter(b => b.permitCount >= 2) // At least 2 permits
-      .sort((a, b) => b.permitCount - a.permitCount || b.permitValue - a.permitValue)
-      .slice(0, limit);
+        const boroughKey = (r.borough || '').toUpperCase();
+        const boroughInfo = BOROUGHS[boroughKey] || { name: r.borough || 'NYC', fips: '36061' };
 
-    // Format as RankedTract
-    const tracts: RankedTract[] = ranked.map((block, index) => {
-      // Calculate trend
-      let trend: 'rising' | 'steady' | 'cooling' = 'steady';
-      if (block.olderCount > 0) {
-        const ratio = block.recentCount / block.olderCount;
-        if (ratio > 1.3) trend = 'rising';
-        else if (ratio < 0.7) trend = 'cooling';
-      } else if (block.recentCount > 0) {
-        trend = 'rising';
-      }
-
-      // Calculate score
-      const score = Math.min(100, Math.round(
-        (block.permitCount * 5) +
-        (Math.log10(block.permitValue + 1) * 3)
-      ));
-
-      // Average lat/lng
-      const lat = block.lats.reduce((a, b) => a + b, 0) / block.lats.length;
-      const lng = block.lngs.reduce((a, b) => a + b, 0) / block.lngs.length;
-
-      const boroughInfo = BOROUGHS[block.borough] || { name: 'NYC', fips: '36061' };
-
-      return {
-        rank: index + 1,
-        geoid: `${boroughInfo.fips}${block.block.padStart(6, '0')}`,
-        name: `Block ${block.block}`,
-        borough: boroughInfo.name,
-        score,
-        permitCount: block.permitCount,
-        permitValue: block.permitValue,
-        trend,
-        lat,
-        lng,
-      };
-    });
+        return {
+          rank: index + 1,
+          geoid: `${boroughInfo.fips}${(r.block || '0').padStart(6, '0')}`,
+          name: `Block ${r.block}`,
+          borough: boroughInfo.name,
+          score,
+          permitCount,
+          permitValue,
+          trend,
+          lat: parseFloat(r.avg_lat),
+          lng: parseFloat(r.avg_lng),
+        };
+      });
 
     return NextResponse.json({
       tracts,
       timeHorizon,
       borough: borough || 'all',
       count: tracts.length,
-      source: 'live',
+      source: 'database',
     });
   } catch (error) {
     console.error('Rankings query error:', error);
