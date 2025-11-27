@@ -46,6 +46,7 @@ export function Map() {
     includeAdjacentTracts,
     timeHorizon,
     activeFilters,
+    mode,
   } = useAppStore();
 
   // Build filter types string from active filters
@@ -395,14 +396,14 @@ export function Map() {
     });
   }, [mapCenter.latitude, mapCenter.longitude, mapZoom, mapLoaded]);
 
-  // Fetch and display heatmap data
+  // Fetch and display heatmap data - ONLY in Scout mode
   useEffect(() => {
     if (!map.current || !mapLoaded) return;
     
-    // Only show heatmap when zoomed out (no subject address selected)
-    // When subject is selected, we show individual markers instead
-    if (subjectAddress) {
-      // Clear heatmap when address is selected
+    // Only show heatmap in Scout mode
+    // In Lookup mode, we show individual markers around the subject address
+    if (mode === 'lookup') {
+      // Clear heatmap when in Lookup mode
       const source = map.current.getSource('permits-heatmap') as mapboxgl.GeoJSONSource;
       if (source) {
         source.setData({ type: 'FeatureCollection', features: [] });
@@ -465,7 +466,7 @@ export function Map() {
       clearTimeout(timeoutId);
       map.current?.off('moveend', handleMoveEnd);
     };
-  }, [mapLoaded, subjectAddress, timeHorizon]);
+  }, [mapLoaded, mode, timeHorizon]);
 
   // Fly to subject address when selected
   useEffect(() => {

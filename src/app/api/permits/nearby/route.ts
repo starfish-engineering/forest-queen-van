@@ -1,20 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db/client';
-import { permits } from '@/lib/db/schema';
-import { sql, and, gte, lte, isNotNull, inArray } from 'drizzle-orm';
-import { getDateCutoff } from '@/lib/utils/date';
+import { getNearbyPermits, transformPermit } from '@/lib/nyc-open-data';
 import type { TimeHorizon } from '@/types';
 
 // Map filter categories to actual permit types
 const PERMIT_TYPE_MAP: Record<string, string[]> = {
-  // Building filters
-  newConstruction: ['NB'],           // New Building
-  majorRenovation: ['A1'],           // Alteration Type 1 (major)
-  commercialTi: ['A2'],              // Alteration Type 2 (tenant improvement)
-  multifamily: ['A3'],               // Alteration Type 3 (minor/cosmetic)
-  // Additional permit types for completeness
+  newConstruction: ['NB'],
+  majorRenovation: ['A1'],
+  commercialTi: ['A2'],
+  multifamily: ['A3'],
   demolition: ['DM'],
   equipment: ['EW', 'EQ'],
+};
+
+// Map time horizon to months
+const HORIZON_MONTHS: Record<TimeHorizon, number> = {
+  '6mo': 6,
+  '1yr': 12,
+  '3yr': 36,
 };
 
 export async function GET(request: NextRequest) {
@@ -22,9 +24,9 @@ export async function GET(request: NextRequest) {
   
   const lat = parseFloat(searchParams.get('lat') || '0');
   const lng = parseFloat(searchParams.get('lng') || '0');
-  const radius = parseFloat(searchParams.get('radius') || '0.01'); // ~1km default
-  const limit = parseInt(searchParams.get('limit') || '200');
-  const types = searchParams.get('types'); // comma-separated filter IDs
+  const radius = parseFloat(searchParams.get('radius') || '0.01');
+  const limit = parseInt(searchParams.get('limit') || '300');
+  const types = searchParams.get('types');
   const timeHorizon = (searchParams.get('timeHorizon') || '1yr') as TimeHorizon;
 
   if (!lat || !lng) {
@@ -35,89 +37,71 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Simple bounding box query
-    const minLat = lat - radius;
-    const maxLat = lat + radius;
-    const minLng = lng - radius;
-    const maxLng = lng + radius;
-
     // Build list of permit types to include based on filters
     let permitTypesToInclude: string[] | null = null;
     if (types) {
       const filterIds = types.split(',');
       permitTypesToInclude = filterIds.flatMap(id => PERMIT_TYPE_MAP[id] || []);
-      // If no valid mappings, include all types
       if (permitTypesToInclude.length === 0) {
         permitTypesToInclude = null;
       }
     }
 
-    // Get date cutoff based on time horizon
-    const cutoffDate = getDateCutoff(timeHorizon);
-    const cutoffStr = cutoffDate.toISOString().split('T')[0];
+    const monthsBack = HORIZON_MONTHS[timeHorizon] || 12;
 
-    // Build where conditions
-    const conditions = [
-      isNotNull(permits.latitude),
-      isNotNull(permits.longitude),
-      gte(permits.filingDate, cutoffStr), // Time filter
-      gte(sql`CAST(${permits.latitude} AS NUMERIC)`, minLat),
-      lte(sql`CAST(${permits.latitude} AS NUMERIC)`, maxLat),
-      gte(sql`CAST(${permits.longitude} AS NUMERIC)`, minLng),
-      lte(sql`CAST(${permits.longitude} AS NUMERIC)`, maxLng),
-    ];
+    // Fetch live data from NYC Open Data
+    const permits = await getNearbyPermits({
+      lat,
+      lng,
+      radiusDegrees: radius,
+      monthsBack,
+      limit,
+    });
 
-    // Add type filter if specified
+    // Apply client-side type filtering if needed
+    let filteredPermits = permits;
     if (permitTypesToInclude && permitTypesToInclude.length > 0) {
-      conditions.push(inArray(permits.permitType, permitTypesToInclude));
+      filteredPermits = permits.filter(p => 
+        permitTypesToInclude!.includes(p.permit_type)
+      );
     }
-
-    const results = await db
-      .select({
-        id: permits.id,
-        permitNumber: permits.permitNumber,
-        permitType: permits.permitType,
-        permitSubtype: permits.permitSubtype,
-        description: permits.description,
-        filingDate: permits.filingDate,
-        address: permits.address,
-        borough: permits.borough,
-        latitude: permits.latitude,
-        longitude: permits.longitude,
-        estimatedCost: permits.estimatedCost,
-      })
-      .from(permits)
-      .where(and(...conditions))
-      .limit(limit);
 
     // Transform to GeoJSON for easy map rendering
     const geojson = {
       type: 'FeatureCollection' as const,
-      features: results.map((p) => ({
-        type: 'Feature' as const,
-        geometry: {
-          type: 'Point' as const,
-          coordinates: [parseFloat(p.longitude!), parseFloat(p.latitude!)],
-        },
-        properties: {
-          id: p.id,
-          permitNumber: p.permitNumber,
-          permitType: p.permitType,
-          permitSubtype: p.permitSubtype,
-          description: p.description,
-          filingDate: p.filingDate,
-          address: p.address,
-          borough: p.borough,
-          estimatedCost: p.estimatedCost,
-        },
-      })),
+      features: filteredPermits
+        .filter(p => p.gis_latitude && p.gis_longitude)
+        .map((p) => {
+          const transformed = transformPermit(p);
+          return {
+            type: 'Feature' as const,
+            geometry: {
+              type: 'Point' as const,
+              coordinates: [transformed.longitude!, transformed.latitude!],
+            },
+            properties: {
+              id: transformed.id,
+              permitNumber: transformed.permitNumber,
+              permitType: transformed.permitType,
+              permitSubtype: transformed.permitSubtype,
+              description: transformed.description,
+              filingDate: transformed.filingDate,
+              address: transformed.address,
+              borough: transformed.borough,
+              estimatedCost: transformed.estimatedCost,
+            },
+          };
+        }),
     };
 
-    return NextResponse.json(geojson);
+    return NextResponse.json({
+      ...geojson,
+      source: 'live',
+    });
   } catch (error) {
     console.error('Nearby permits query error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch permits' },
+      { error: 'Failed to fetch permits', details: String(error) },
       { status: 500 }
     );
   }
