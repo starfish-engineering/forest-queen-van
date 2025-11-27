@@ -82,6 +82,32 @@ export function Map() {
           transition: transform 0.15s ease;
         `;
         
+        // Create popup
+        const popup = new mapboxgl.Popup({
+          offset: 15,
+          closeButton: true,
+          closeOnClick: true,
+          className: 'permit-popup',
+          maxWidth: '280px',
+        }).setHTML(`
+          <div style="font-family: system-ui; font-size: 13px; padding: 4px;">
+            <div style="font-weight: 600; color: #00d4ff; margin-bottom: 6px; font-size: 14px;">
+              ${props.permitType} Permit
+            </div>
+            <div style="color: #f0f0f5; margin-bottom: 6px; line-height: 1.4;">
+              ${props.address || 'Address N/A'}
+            </div>
+            <div style="color: #a0a0b0; font-size: 12px;">
+              📅 Filed: ${props.filingDate || 'N/A'}
+            </div>
+            ${props.description ? `
+              <div style="color: #a0a0b0; font-size: 12px; margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1);">
+                ${props.description}
+              </div>
+            ` : ''}
+          </div>
+        `);
+        
         el.addEventListener('mouseenter', () => {
           el.style.transform = 'scale(1.5)';
           el.style.zIndex = '10';
@@ -91,29 +117,15 @@ export function Map() {
           el.style.zIndex = '1';
         });
         
-        // Create popup
-        const popup = new mapboxgl.Popup({
-          offset: 12,
-          closeButton: false,
-          className: 'permit-popup',
-        }).setHTML(`
-          <div style="font-family: system-ui; font-size: 12px; max-width: 250px;">
-            <div style="font-weight: 600; color: #00d4ff; margin-bottom: 4px;">
-              ${props.permitType} Permit
-            </div>
-            <div style="color: #e2e8f0; margin-bottom: 4px;">
-              ${props.address || 'Address N/A'}
-            </div>
-            <div style="color: #94a3b8; font-size: 11px;">
-              Filed: ${props.filingDate || 'N/A'}
-            </div>
-            ${props.description ? `
-              <div style="color: #94a3b8; font-size: 11px; margin-top: 4px;">
-                ${props.description}
-              </div>
-            ` : ''}
-          </div>
-        `);
+        // Click to toggle popup
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          // Close any other open popups first
+          permitMarkersRef.current.forEach(m => {
+            if (m.getPopup()?.isOpen()) m.togglePopup();
+          });
+          marker.togglePopup();
+        });
         
         const marker = new mapboxgl.Marker({ element: el })
           .setLngLat([lng, lat])
