@@ -45,7 +45,21 @@ export function Map() {
     adjacentTracts,
     includeAdjacentTracts,
     timeHorizon,
+    activeFilters,
   } = useAppStore();
+
+  // Build filter types string from active filters
+  const getActiveFilterTypes = useCallback(() => {
+    const types: string[] = [];
+    
+    // Map filter checkboxes to permit type IDs
+    if (activeFilters.building.newConstruction) types.push('newConstruction');
+    if (activeFilters.building.majorRenovation) types.push('majorRenovation');
+    if (activeFilters.building.commercialTi) types.push('commercialTi');
+    if (activeFilters.building.multifamily) types.push('multifamily');
+    
+    return types.length > 0 ? types.join(',') : '';
+  }, [activeFilters]);
 
   // Fetch nearby permits
   const fetchNearbyPermits = useCallback(async (lat: number, lng: number) => {
@@ -54,9 +68,10 @@ export function Map() {
     setPermitsLoading(true);
     
     try {
-      const response = await fetch(
-        `/api/permits/nearby?lat=${lat}&lng=${lng}&radius=0.015&limit=300`
-      );
+      const filterTypes = getActiveFilterTypes();
+      const url = `/api/permits/nearby?lat=${lat}&lng=${lng}&radius=0.015&limit=300${filterTypes ? `&types=${filterTypes}` : ''}`;
+      
+      const response = await fetch(url);
       
       if (!response.ok) throw new Error('Failed to fetch permits');
       
@@ -145,7 +160,7 @@ export function Map() {
     } finally {
       setPermitsLoading(false);
     }
-  }, [mapLoaded]);
+  }, [mapLoaded, getActiveFilterTypes]);
 
   // Initialize map
   useEffect(() => {
@@ -468,6 +483,18 @@ export function Map() {
       fetchNearbyPermits(subjectAddress.latitude, subjectAddress.longitude);
     }, 1800);
   }, [subjectAddress, fetchNearbyPermits]);
+
+  // Refetch permits when filters change (if subject address exists)
+  useEffect(() => {
+    if (!subjectAddress || !mapLoaded) return;
+    
+    // Small delay to batch filter changes
+    const timeoutId = setTimeout(() => {
+      fetchNearbyPermits(subjectAddress.latitude, subjectAddress.longitude);
+    }, 300);
+    
+    return () => clearTimeout(timeoutId);
+  }, [activeFilters, subjectAddress, mapLoaded, fetchNearbyPermits]);
 
   return (
     <>
