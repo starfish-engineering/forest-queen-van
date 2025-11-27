@@ -9,6 +9,8 @@ import type {
   TractScoreData,
 } from '@/types';
 
+export type AppMode = 'lookup' | 'scout';
+
 // Default filter state - all enabled
 const defaultFilters: FilterState = {
   building: {
@@ -39,11 +41,17 @@ const NYC_CENTER: Coordinates = {
 };
 
 interface AppState {
-  // Subject property
+  // App mode
+  mode: AppMode;
+  
+  // Subject property (Lookup mode)
   subjectAddress: Address | null;
   subjectTract: CensusTractWithGeometry | null;
   adjacentTracts: CensusTractWithGeometry[];
   tractScores: Record<TimeHorizon, TractScoreData> | null;
+  
+  // Scout mode
+  selectedScoutTract: string | null; // geoid of tract being viewed in Scout
   
   // Filters
   activeFilters: FilterState;
@@ -60,10 +68,12 @@ interface AppState {
   mapZoom: number;
   
   // Actions
+  setMode: (mode: AppMode) => void;
   setSubjectAddress: (address: Address | null) => void;
   setSubjectTract: (tract: CensusTractWithGeometry | null) => void;
   setAdjacentTracts: (tracts: CensusTractWithGeometry[]) => void;
   setTractScores: (scores: Record<TimeHorizon, TractScoreData> | null) => void;
+  setSelectedScoutTract: (geoid: string | null) => void;
   setActiveFilters: (filters: FilterState) => void;
   toggleFilter: (category: keyof FilterState, subcategory: string) => void;
   setTimeHorizon: (horizon: TimeHorizon) => void;
@@ -74,14 +84,17 @@ interface AppState {
   setMapView: (center: Coordinates, zoom: number) => void;
   resetFilters: () => void;
   clearAll: () => void;
+  drillIntoTract: (geoid: string, name: string, geometry: unknown) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
   // Initial state
+  mode: 'lookup',
   subjectAddress: null,
   subjectTract: null,
   adjacentTracts: [],
   tractScores: null,
+  selectedScoutTract: null,
   activeFilters: defaultFilters,
   timeHorizon: '1yr',
   includeAdjacentTracts: false,
@@ -92,6 +105,8 @@ export const useAppStore = create<AppState>((set) => ({
   mapZoom: 11,
   
   // Actions
+  setMode: (mode) => set({ mode }),
+  
   setSubjectAddress: (address) => set({ subjectAddress: address }),
   
   setSubjectTract: (tract) => set({ subjectTract: tract }),
@@ -99,6 +114,8 @@ export const useAppStore = create<AppState>((set) => ({
   setAdjacentTracts: (tracts) => set({ adjacentTracts: tracts }),
   
   setTractScores: (scores) => set({ tractScores: scores }),
+  
+  setSelectedScoutTract: (geoid) => set({ selectedScoutTract: geoid }),
   
   setActiveFilters: (filters) => set({ activeFilters: filters }),
   
@@ -129,10 +146,12 @@ export const useAppStore = create<AppState>((set) => ({
   resetFilters: () => set({ activeFilters: defaultFilters }),
   
   clearAll: () => set({
+    mode: 'lookup',
     subjectAddress: null,
     subjectTract: null,
     adjacentTracts: [],
     tractScores: null,
+    selectedScoutTract: null,
     activeFilters: defaultFilters,
     timeHorizon: '1yr',
     includeAdjacentTracts: false,
@@ -140,6 +159,19 @@ export const useAppStore = create<AppState>((set) => ({
     selectedPermit: null,
     mapCenter: NYC_CENTER,
     mapZoom: 11,
+  }),
+  
+  // Drill into a tract from Scout mode → switches to Lookup mode with that tract selected
+  drillIntoTract: (geoid, name, geometry) => set({
+    mode: 'lookup',
+    subjectTract: {
+      geoid,
+      name,
+      countyFips: geoid.slice(0, 5),
+      landAreaSqm: null,
+      geometry,
+    },
+    selectedScoutTract: null,
   }),
 }));
 
