@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useAppStore } from '@/lib/store';
@@ -11,11 +11,30 @@ const NYC_BOUNDS: mapboxgl.LngLatBoundsLike = [
   [-73.700, 40.917], // NE
 ];
 
+// Permit type colors
+const PERMIT_COLORS: Record<string, string> = {
+  'NB': '#22c55e',  // New Building - green
+  'A1': '#f59e0b',  // Alteration Type 1 - amber
+  'A2': '#3b82f6',  // Alteration Type 2 - blue
+  'A3': '#8b5cf6',  // Alteration Type 3 - purple
+  'DM': '#ef4444',  // Demolition - red
+  'EW': '#06b6d4',  // Equipment Work - cyan
+  'EQ': '#06b6d4',  // Equipment - cyan
+  'default': '#94a3b8', // Default - gray
+};
+
+function getPermitColor(type: string): string {
+  return PERMIT_COLORS[type] || PERMIT_COLORS.default;
+}
+
 export function Map() {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
+  const permitMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [permitsLoading, setPermitsLoading] = useState(false);
+  const [permitCount, setPermitCount] = useState(0);
   
   const { 
     mapCenter, 
@@ -24,6 +43,95 @@ export function Map() {
     subjectAddress,
     subjectTract 
   } = useAppStore();
+
+  // Fetch nearby permits
+  const fetchNearbyPermits = useCallback(async (lat: number, lng: number) => {
+    if (!map.current || !mapLoaded) return;
+    
+    setPermitsLoading(true);
+    
+    try {
+      const response = await fetch(
+        `/api/permits/nearby?lat=${lat}&lng=${lng}&radius=0.015&limit=300`
+      );
+      
+      if (!response.ok) throw new Error('Failed to fetch permits');
+      
+      const geojson = await response.json();
+      
+      // Clear old markers
+      permitMarkersRef.current.forEach(m => m.remove());
+      permitMarkersRef.current = [];
+      
+      // Add new markers
+      geojson.features.forEach((feature: any) => {
+        const [lng, lat] = feature.geometry.coordinates;
+        const props = feature.properties;
+        
+        // Create custom marker element
+        const el = document.createElement('div');
+        el.className = 'permit-marker';
+        el.style.cssText = `
+          width: 12px;
+          height: 12px;
+          background: ${getPermitColor(props.permitType)};
+          border: 2px solid rgba(255,255,255,0.8);
+          border-radius: 50%;
+          cursor: pointer;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+          transition: transform 0.15s ease;
+        `;
+        
+        el.addEventListener('mouseenter', () => {
+          el.style.transform = 'scale(1.5)';
+          el.style.zIndex = '10';
+        });
+        el.addEventListener('mouseleave', () => {
+          el.style.transform = 'scale(1)';
+          el.style.zIndex = '1';
+        });
+        
+        // Create popup
+        const popup = new mapboxgl.Popup({
+          offset: 12,
+          closeButton: false,
+          className: 'permit-popup',
+        }).setHTML(`
+          <div style="font-family: system-ui; font-size: 12px; max-width: 250px;">
+            <div style="font-weight: 600; color: #00d4ff; margin-bottom: 4px;">
+              ${props.permitType} Permit
+            </div>
+            <div style="color: #e2e8f0; margin-bottom: 4px;">
+              ${props.address || 'Address N/A'}
+            </div>
+            <div style="color: #94a3b8; font-size: 11px;">
+              Filed: ${props.filingDate || 'N/A'}
+            </div>
+            ${props.description ? `
+              <div style="color: #94a3b8; font-size: 11px; margin-top: 4px;">
+                ${props.description}
+              </div>
+            ` : ''}
+          </div>
+        `);
+        
+        const marker = new mapboxgl.Marker({ element: el })
+          .setLngLat([lng, lat])
+          .setPopup(popup)
+          .addTo(map.current!);
+        
+        permitMarkersRef.current.push(marker);
+      });
+      
+      setPermitCount(geojson.features.length);
+      console.log(`Loaded ${geojson.features.length} permit markers`);
+    } catch (error) {
+      console.error('Error loading permits:', error);
+      setPermitCount(0);
+    } finally {
+      setPermitsLoading(false);
+    }
+  }, [mapLoaded]);
 
   // Initialize map
   useEffect(() => {
@@ -210,7 +318,7 @@ export function Map() {
 
     map.current.flyTo({
       center: [subjectAddress.longitude, subjectAddress.latitude],
-      zoom: 14,
+      zoom: 15,
       duration: 1500,
     });
 
@@ -222,17 +330,62 @@ export function Map() {
     // Add marker for subject property
     markerRef.current = new mapboxgl.Marker({
       color: '#00d4ff',
+      scale: 1.2,
     })
       .setLngLat([subjectAddress.longitude, subjectAddress.latitude])
       .addTo(map.current);
-  }, [subjectAddress]);
+    
+    // Fetch nearby permits after a short delay for map to settle
+    setTimeout(() => {
+      fetchNearbyPermits(subjectAddress.latitude, subjectAddress.longitude);
+    }, 1800);
+  }, [subjectAddress, fetchNearbyPermits]);
 
   return (
-    <div 
-      ref={mapContainer} 
-      className="absolute inset-0 w-full h-full"
-      style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}
-    />
+    <>
+      <div 
+        ref={mapContainer} 
+        className="absolute inset-0 w-full h-full"
+        style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}
+      />
+      
+      {/* Loading indicator */}
+      {permitsLoading && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50">
+          <div className="glass px-4 py-2 rounded-lg flex items-center gap-2 text-sm"
+               style={{ border: '1px solid var(--border-default)' }}>
+            <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+            Loading permits...
+          </div>
+        </div>
+      )}
+      
+      {/* Permit count badge */}
+      {permitCount > 0 && !permitsLoading && (
+        <div className="absolute bottom-20 left-4 z-50">
+          <div className="glass px-3 py-2 rounded-lg text-xs"
+               style={{ border: '1px solid var(--border-default)' }}>
+            <div className="font-semibold text-cyan-400 mb-1">
+              {permitCount} Permits
+            </div>
+            <div className="flex gap-2 flex-wrap" style={{ maxWidth: '200px' }}>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full" style={{ background: '#22c55e' }} /> NB
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full" style={{ background: '#f59e0b' }} /> A1
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full" style={{ background: '#3b82f6' }} /> A2
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full" style={{ background: '#8b5cf6' }} /> A3
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

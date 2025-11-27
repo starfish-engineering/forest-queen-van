@@ -128,10 +128,21 @@ body {
   border-radius: var(--radius-md) !important;
   padding: var(--space-3) var(--space-4) !important;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+  border: 1px solid var(--border-default) !important;
 }
 
 .mapboxgl-popup-tip {
   border-top-color: var(--bg-secondary) !important;
+}
+
+/* Permit popup styling */
+.permit-popup .mapboxgl-popup-content {
+  background: rgba(18, 18, 26, 0.95) !important;
+  min-width: 180px;
+}
+
+.permit-popup .mapboxgl-popup-tip {
+  border-top-color: rgba(18, 18, 26, 0.95) !important;
 }
 
 /* Custom animations */
