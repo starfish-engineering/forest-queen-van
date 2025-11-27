@@ -6,21 +6,41 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "tsx scripts/seed/census-tracts.ts",
+    "etl:permits": "tsx scripts/etl/dob-permits.ts",
+    "etl:businesses": "tsx scripts/etl/dca-businesses.ts",
+    "etl:liquor": "tsx scripts/etl/sla-liquor.ts",
+    "etl:all": "npm run etl:permits && npm run etl:businesses && npm run etl:liquor",
+    "score:compute": "tsx scripts/seed/compute-scores.ts"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.90.11",
+    "@types/mapbox-gl": "^3.4.1",
+    "drizzle-orm": "^0.44.7",
+    "mapbox-gl": "^3.16.0",
     "next": "16.0.5",
+    "postgres": "^3.4.7",
     "react": "19.2.0",
-    "react-dom": "19.2.0"
+    "react-dom": "19.2.0",
+    "recharts": "^3.5.0",
+    "zustand": "^5.0.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/geojson": "^7946.0.16",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "drizzle-kit": "^0.31.7",
     "eslint": "^9",
     "eslint-config-next": "16.0.5",
     "tailwindcss": "^4",
+    "tsx": "^4.20.6",
     "typescript": "^5"
   }
 }

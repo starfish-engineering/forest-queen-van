@@ -1,0 +1,138 @@
+import { create } from 'zustand';
+import type { 
+  Address, 
+  CensusTractWithGeometry, 
+  FilterState, 
+  TimeHorizon, 
+  PermitData,
+  Coordinates 
+} from '@/types';
+
+// Default filter state - all enabled
+const defaultFilters: FilterState = {
+  building: {
+    multifamily: true,
+    majorRenovation: true,
+    commercialTi: true,
+    newConstruction: true,
+  },
+  business: {
+    restaurant: true,
+    coffee: true,
+    retail: true,
+    fitness: true,
+    coworking: true,
+    grocery: true,
+  },
+  liquor: {
+    bar: true,
+    wineBar: true,
+    restaurantLiquor: true,
+  },
+};
+
+// NYC center coordinates (default map view)
+const NYC_CENTER: Coordinates = {
+  latitude: 40.7128,
+  longitude: -73.9856,
+};
+
+interface AppState {
+  // Subject property
+  subjectAddress: Address | null;
+  subjectTract: CensusTractWithGeometry | null;
+  adjacentTracts: CensusTractWithGeometry[];
+  
+  // Filters
+  activeFilters: FilterState;
+  timeHorizon: TimeHorizon;
+  includeAdjacentTracts: boolean;
+  
+  // UI state
+  drawerOpen: boolean;
+  selectedPermit: PermitData | null;
+  filterPanelOpen: boolean;
+  
+  // Map state
+  mapCenter: Coordinates;
+  mapZoom: number;
+  
+  // Actions
+  setSubjectAddress: (address: Address | null) => void;
+  setSubjectTract: (tract: CensusTractWithGeometry | null) => void;
+  setAdjacentTracts: (tracts: CensusTractWithGeometry[]) => void;
+  setActiveFilters: (filters: FilterState) => void;
+  toggleFilter: (category: keyof FilterState, subcategory: string) => void;
+  setTimeHorizon: (horizon: TimeHorizon) => void;
+  toggleIncludeAdjacentTracts: () => void;
+  openDrawer: (permit: PermitData) => void;
+  closeDrawer: () => void;
+  toggleFilterPanel: () => void;
+  setMapView: (center: Coordinates, zoom: number) => void;
+  resetFilters: () => void;
+  clearAll: () => void;
+}
+
+export const useAppStore = create<AppState>((set) => ({
+  // Initial state
+  subjectAddress: null,
+  subjectTract: null,
+  adjacentTracts: [],
+  activeFilters: defaultFilters,
+  timeHorizon: '1yr',
+  includeAdjacentTracts: false,
+  drawerOpen: false,
+  selectedPermit: null,
+  filterPanelOpen: true,
+  mapCenter: NYC_CENTER,
+  mapZoom: 11,
+  
+  // Actions
+  setSubjectAddress: (address) => set({ subjectAddress: address }),
+  
+  setSubjectTract: (tract) => set({ subjectTract: tract }),
+  
+  setAdjacentTracts: (tracts) => set({ adjacentTracts: tracts }),
+  
+  setActiveFilters: (filters) => set({ activeFilters: filters }),
+  
+  toggleFilter: (category, subcategory) => set((state) => ({
+    activeFilters: {
+      ...state.activeFilters,
+      [category]: {
+        ...state.activeFilters[category],
+        [subcategory]: !state.activeFilters[category][subcategory as keyof typeof state.activeFilters[typeof category]],
+      },
+    },
+  })),
+  
+  setTimeHorizon: (horizon) => set({ timeHorizon: horizon }),
+  
+  toggleIncludeAdjacentTracts: () => set((state) => ({
+    includeAdjacentTracts: !state.includeAdjacentTracts,
+  })),
+  
+  openDrawer: (permit) => set({ drawerOpen: true, selectedPermit: permit }),
+  
+  closeDrawer: () => set({ drawerOpen: false, selectedPermit: null }),
+  
+  toggleFilterPanel: () => set((state) => ({ filterPanelOpen: !state.filterPanelOpen })),
+  
+  setMapView: (center, zoom) => set({ mapCenter: center, mapZoom: zoom }),
+  
+  resetFilters: () => set({ activeFilters: defaultFilters }),
+  
+  clearAll: () => set({
+    subjectAddress: null,
+    subjectTract: null,
+    adjacentTracts: [],
+    activeFilters: defaultFilters,
+    timeHorizon: '1yr',
+    includeAdjacentTracts: false,
+    drawerOpen: false,
+    selectedPermit: null,
+    mapCenter: NYC_CENTER,
+    mapZoom: 11,
+  }),
+}));
+
