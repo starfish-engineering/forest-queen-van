@@ -19,8 +19,8 @@ const NYC_COUNTIES = [
   '36085', // Richmond (Staten Island)
 ];
 
-// Census TIGER API for tract boundaries
-const CENSUS_API_URL = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Census2020/MapServer/8/query';
+// Census TIGER API for tract boundaries (Layer 6 = Census Tracts)
+const CENSUS_API_URL = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Census2020/MapServer/6/query';
 
 async function fetchTractsForCounty(countyFips: string): Promise<unknown[]> {
   const params = new URLSearchParams({

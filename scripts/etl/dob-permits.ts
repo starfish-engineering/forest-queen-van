@@ -11,12 +11,15 @@ import { db } from '../../src/lib/db/client';
 import { permits } from '../../src/lib/db/schema';
 
 const NYC_OPEN_DATA_TOKEN = process.env.NYC_OPEN_DATA_APP_TOKEN || '';
-const DOB_PERMITS_API = 'https://data.cityofnewyork.us/resource/ipu4-2vj7.json';
+const DOB_PERMITS_API = 'https://data.cityofnewyork.us/resource/ipu4-2q9a.json';
 
-// Calculate date 3 years ago
+// Calculate date 3 years ago in MM/DD/YYYY format
 const THREE_YEARS_AGO = new Date();
 THREE_YEARS_AGO.setFullYear(THREE_YEARS_AGO.getFullYear() - 3);
-const DATE_FILTER = THREE_YEARS_AGO.toISOString().split('T')[0];
+const month = String(THREE_YEARS_AGO.getMonth() + 1).padStart(2, '0');
+const day = String(THREE_YEARS_AGO.getDate()).padStart(2, '0');
+const year = THREE_YEARS_AGO.getFullYear();
+const DATE_FILTER = `${month}/${day}/${year}`;
 
 interface DOBPermit {
   job__: string;
@@ -33,14 +36,39 @@ interface DOBPermit {
   block?: string;
   lot?: string;
   bin__?: string;
-  latitude?: string;
-  longitude?: string;
+  gis_latitude?: string;
+  gis_longitude?: string;
   owner_s_business_name?: string;
 }
 
-async function fetchPermits(offset: number = 0, limit: number = 50000): Promise<DOBPermit[]> {
+// Parse date - handles both YYYY-MM-DD and MM/DD/YYYY formats
+function parseDate(dateStr: string): string | null {
+  if (!dateStr) return null;
+  const trimmed = dateStr.trim();
+  
+  // Already in YYYY-MM-DD format
+  if (trimmed.match(/^\d{4}-\d{2}-\d{2}/)) {
+    return trimmed.split(' ')[0]; // Remove any time component
+  }
+  
+  // MM/DD/YYYY format
+  const parts = trimmed.split('/');
+  if (parts.length === 3) {
+    const [m, d, y] = parts;
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+  
+  return null;
+}
+
+// For demo: fetch permits around East Village/Alphabet City (zip 10009) + nearby areas
+async function fetchPermits(offset: number = 0, limit: number = 2000): Promise<DOBPermit[]> {
+  // Focus on Manhattan zips around 133 Avenue D (10009)
+  const demoZips = ['10009', '10003', '10002', '10010', '10014'];
+  const zipFilter = demoZips.map(z => `zip_code='${z}'`).join(' OR ');
+  
   const params = new URLSearchParams({
-    '$where': `filing_date > '${DATE_FILTER}'`,
+    '$where': `gis_latitude IS NOT NULL AND (${zipFilter})`,
     '$limit': limit.toString(),
     '$offset': offset.toString(),
     '$order': 'filing_date DESC',
@@ -90,26 +118,32 @@ async function etlDOBPermits() {
 
       console.log(`   Processing ${batch.length} permits...`);
 
+      let skipped = 0;
+      let errors = 0;
+      
       for (const permit of batch) {
-        if (!permit.job__) continue;
+        if (!permit.job__) { skipped++; continue; }
 
         try {
+          const filingDate = parseDate(permit.filing_date);
+          if (!filingDate) { skipped++; continue; } // Skip if no valid filing date
+
           await db.insert(permits).values({
             permitNumber: permit.job__,
             permitType: permit.permit_type || 'Unknown',
             permitSubtype: permit.permit_subtype || permit.work_type,
             description: permit.work_type,
-            filingDate: permit.filing_date,
-            issuanceDate: permit.issuance_date,
-            expirationDate: permit.expiration_date,
+            filingDate: filingDate,
+            issuanceDate: parseDate(permit.issuance_date || ''),
+            expirationDate: parseDate(permit.expiration_date || ''),
             estimatedCost: permit.estimated_job_cost__,
             address: buildAddress(permit),
             borough: permit.borough,
             block: permit.block,
             lot: permit.lot,
             bin: permit.bin__,
-            latitude: permit.latitude,
-            longitude: permit.longitude,
+            latitude: permit.gis_latitude,
+            longitude: permit.gis_longitude,
             rawData: permit,
           }).onConflictDoUpdate({
             target: permits.permitNumber,
@@ -117,11 +151,11 @@ async function etlDOBPermits() {
               permitType: permit.permit_type || 'Unknown',
               permitSubtype: permit.permit_subtype || permit.work_type,
               description: permit.work_type,
-              issuanceDate: permit.issuance_date,
-              expirationDate: permit.expiration_date,
+              issuanceDate: parseDate(permit.issuance_date || ''),
+              expirationDate: parseDate(permit.expiration_date || ''),
               estimatedCost: permit.estimated_job_cost__,
-              latitude: permit.latitude,
-              longitude: permit.longitude,
+              latitude: permit.gis_latitude,
+              longitude: permit.gis_longitude,
               rawData: permit,
               updatedAt: new Date(),
             },
@@ -129,21 +163,24 @@ async function etlDOBPermits() {
 
           totalProcessed++;
         } catch (err) {
-          // Skip duplicates and other errors silently
+          errors++;
+          // Log first error for debugging
+          if (errors === 1) {
+            console.error('   ⚠️  Insert error:', (err as Error).message);
+          }
         }
       }
 
-      console.log(`   ✅ Batch complete (total: ${totalProcessed})\n`);
+      console.log(`   ✅ Batch complete (inserted: ${totalProcessed}, skipped: ${skipped}, errors: ${errors})\n`);
       
-      offset += batch.length;
-      
-      // Rate limiting - wait 1 second between batches
-      if (batch.length === 50000) {
-        console.log('   ⏳ Rate limiting pause...');
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      } else {
-        hasMore = false;
+      // Log sample permit for debugging
+      if (batch.length > 0) {
+        const sample = batch[0];
+        console.log(`   📋 Sample permit: job=${sample.job__}, date=${sample.filing_date}, lat=${sample.gis_latitude}`);
       }
+      
+      // For demo: just load one batch
+      hasMore = false;
     } catch (err) {
       console.error(`   ❌ Batch failed:`, err);
       hasMore = false;
