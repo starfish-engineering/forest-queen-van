@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { 
   Address, 
   CensusTractWithGeometry, 
@@ -88,9 +89,11 @@ interface AppState {
   drillIntoTract: (geoid: string, name: string, lat: number, lng: number) => void;
 }
 
-export const useAppStore = create<AppState>((set) => ({
-  // Initial state
-  mode: 'lookup',
+export const useAppStore = create<AppState>()(
+  persist(
+    (set) => ({
+  // Initial state - default to Scout mode
+  mode: 'scout',
   subjectAddress: null,
   subjectTract: null,
   adjacentTracts: [],
@@ -182,5 +185,11 @@ export const useAppStore = create<AppState>((set) => ({
     mapCenter: { latitude: lat, longitude: lng },
     mapZoom: 15,
   }),
-}));
+}),
+    {
+      name: 'capex-scout-storage',
+      partialize: (state) => ({ mode: state.mode }), // Only persist mode
+    }
+  )
+);
 

@@ -651,12 +651,12 @@ export function Map() {
           const maxCount = Math.max(...points.map((t: { permitCount: number }) => t.permitCount), 1);
           
           features = points.map((t: { lat: number; lng: number; totalCapital: number; permitCount: number }) => {
-            // Normalize weights relative to max values (0-1 range, then scale to 1-10)
+            // Normalize weights relative to max values (0-1 range)
             const capitalNorm = t.totalCapital / maxCapital;
             const countNorm = t.permitCount / maxCount;
             
-            // Weight more by capital, but also consider count
-            const weight = 1 + (capitalNorm * 6) + (countNorm * 3);
+            // Weight combining capital and count, keeping values low (0.5-3 range)
+            const weight = 0.5 + (capitalNorm * 1.5) + (countNorm * 1);
 
             return {
               type: 'Feature' as const,
@@ -683,11 +683,12 @@ export function Map() {
             granular: ['interpolate', ['linear'], ['zoom'], 14, 15, 16, 25],
           };
           
+          // Lower intensity at zoomed out levels to avoid "all red" heatmap
           const intensityConfig: Record<HeatmapLOD, mapboxgl.Expression> = {
-            borough: ['interpolate', ['linear'], ['zoom'], 8, 0.3, 10, 0.6],
-            neighborhood: ['interpolate', ['linear'], ['zoom'], 10, 0.5, 12, 1],
-            tract: ['interpolate', ['linear'], ['zoom'], 12, 0.8, 14, 1.5],
-            granular: ['interpolate', ['linear'], ['zoom'], 14, 1, 16, 3],
+            borough: ['interpolate', ['linear'], ['zoom'], 8, 0.1, 10, 0.2],
+            neighborhood: ['interpolate', ['linear'], ['zoom'], 10, 0.15, 12, 0.3],
+            tract: ['interpolate', ['linear'], ['zoom'], 12, 0.2, 14, 0.5],
+            granular: ['interpolate', ['linear'], ['zoom'], 14, 0.5, 16, 1.5],
           };
 
           map.current?.setPaintProperty('permits-heat', 'heatmap-radius', radiusConfig[lodLevel] as unknown as number);
