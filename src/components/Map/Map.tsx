@@ -479,16 +479,46 @@ export function Map() {
     });
   }, [subjectTract, adjacentTracts, includeAdjacentTracts, mapLoaded]);
 
+  // Track if we're currently flying to prevent feedback loops
+  const isFlyingRef = useRef(false);
+  const flyToTargetRef = useRef<{ lat: number; lng: number } | null>(null);
+
   // Fly to location when mapCenter changes (e.g., from Scout drill-in)
+  // Only fly if the change is significant (not from user pan/zoom)
   useEffect(() => {
     if (!map.current || !mapLoaded) return;
     
-    map.current.flyTo({
-      center: [mapCenter.longitude, mapCenter.latitude],
-      zoom: mapZoom,
-      duration: 1500,
-      essential: true,
+    const currentCenter = map.current.getCenter();
+    const targetLat = mapCenter.latitude;
+    const targetLng = mapCenter.longitude;
+    
+    // Check if this is a significant change (not just from moveend feedback)
+    const distance = Math.sqrt(
+      Math.pow(currentCenter.lat - targetLat, 2) + 
+      Math.pow(currentCenter.lng - targetLng, 2)
+    );
+    
+    // Only fly if distance is significant (> ~100m) and not already flying to this target
+    const isSignificantMove = distance > 0.001;
+    const isSameTarget = flyToTargetRef.current?.lat === targetLat && 
+                         flyToTargetRef.current?.lng === targetLng;
+    
+    if (isSignificantMove && !isFlyingRef.current && !isSameTarget) {
+      isFlyingRef.current = true;
+      flyToTargetRef.current = { lat: targetLat, lng: targetLng };
+      
+      map.current.flyTo({
+        center: [targetLng, targetLat],
+        zoom: mapZoom,
+        duration: 1500,
+        essential: true,
       });
+      
+      // Reset flying flag after animation
+      setTimeout(() => {
+        isFlyingRef.current = false;
+      }, 1600);
+    }
   }, [mapCenter.latitude, mapCenter.longitude, mapZoom, mapLoaded]);
 
   // Fetch and display heatmap data - ONLY in Scout mode
