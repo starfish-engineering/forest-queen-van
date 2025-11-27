@@ -308,6 +308,9 @@ export function Map() {
         id: 'scout-permits-circles',
         type: 'circle',
         source: 'scout-permits',
+        layout: {
+          'visibility': 'none', // Hidden by default, shown at granular zoom
+        },
         paint: {
           'circle-radius': [
             'interpolate', ['linear'], ['zoom'],
@@ -338,6 +341,7 @@ export function Map() {
         source: 'scout-permits',
         minzoom: 16,
         layout: {
+          'visibility': 'none', // Hidden by default, shown at granular zoom
           'text-field': ['get', 'permitType'],
           'text-size': 9,
           'text-offset': [0, 0],
@@ -574,17 +578,28 @@ export function Map() {
           }
 
           // Hide heatmap, show markers
-          map.current?.setLayoutProperty('permits-heat', 'visibility', 'none');
-          map.current?.setLayoutProperty('scout-permits-circles', 'visibility', 'visible');
-          map.current?.setLayoutProperty('scout-permits-labels', 'visibility', 'visible');
+          console.log('[Scout] Hiding heatmap, showing markers...');
+          try {
+            map.current?.setLayoutProperty('permits-heat', 'visibility', 'none');
+            map.current?.setLayoutProperty('scout-permits-circles', 'visibility', 'visible');
+            map.current?.setLayoutProperty('scout-permits-labels', 'visibility', 'visible');
+            console.log('[Scout] Layer visibility updated successfully');
+          } catch (e) {
+            console.error('[Scout] Error setting layer visibility:', e);
+          }
           
           setHeatmapVisible(data.features?.length > 0);
           return; // Don't update heatmap source
         } else {
           // Hide markers, show heatmap for aggregated levels
-          map.current?.setLayoutProperty('permits-heat', 'visibility', 'visible');
-          map.current?.setLayoutProperty('scout-permits-circles', 'visibility', 'none');
-          map.current?.setLayoutProperty('scout-permits-labels', 'visibility', 'none');
+          console.log('[Heatmap] Showing heatmap, hiding markers...');
+          try {
+            map.current?.setLayoutProperty('permits-heat', 'visibility', 'visible');
+            map.current?.setLayoutProperty('scout-permits-circles', 'visibility', 'none');
+            map.current?.setLayoutProperty('scout-permits-labels', 'visibility', 'none');
+          } catch (e) {
+            console.error('[Heatmap] Error setting layer visibility:', e);
+          }
           
           // Clear scout permits
           const scoutSource = map.current?.getSource('scout-permits') as mapboxgl.GeoJSONSource;
