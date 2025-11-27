@@ -396,17 +396,25 @@ export function Map() {
     });
   }, [mapCenter.latitude, mapCenter.longitude, mapZoom, mapLoaded]);
 
-  // Fetch and display heatmap data - ONLY in Scout mode
-  // Uses viewport-aware loading for performance
+  // Fetch and display heatmap data - ONLY in Scout mode when zoomed in
+  // Minimum zoom level to show heatmap (prevents loading 30k points city-wide)
+  const HEATMAP_MIN_ZOOM = 12;
+  const [heatmapVisible, setHeatmapVisible] = useState(false);
+  
   useEffect(() => {
     if (!map.current || !mapLoaded) return;
     
-    // Only show heatmap in Scout mode
-    if (mode === 'lookup') {
-      const source = map.current.getSource('permits-heatmap') as mapboxgl.GeoJSONSource;
+    const clearHeatmap = () => {
+      const source = map.current?.getSource('permits-heatmap') as mapboxgl.GeoJSONSource;
       if (source) {
         source.setData({ type: 'FeatureCollection', features: [] });
       }
+      setHeatmapVisible(false);
+    };
+
+    // Only show heatmap in Scout mode
+    if (mode === 'lookup') {
+      clearHeatmap();
       return;
     }
 
@@ -414,6 +422,14 @@ export function Map() {
     let abortController: AbortController | null = null;
 
     const fetchHeatmapData = async () => {
+      const currentZoom = map.current?.getZoom() || 0;
+      
+      // Don't load heatmap when zoomed out too far
+      if (currentZoom < HEATMAP_MIN_ZOOM) {
+        clearHeatmap();
+        return;
+      }
+
       // Prevent concurrent fetches
       if (isFetching) return;
       isFetching = true;
@@ -456,6 +472,7 @@ export function Map() {
               },
             })),
           });
+          setHeatmapVisible(true);
           console.log(`Heatmap: ${data.points.length} permits in viewport`);
         }
       } catch (error) {
@@ -467,7 +484,7 @@ export function Map() {
       }
     };
 
-    // Fetch initial heatmap data
+    // Fetch initial heatmap data (if zoomed in enough)
     fetchHeatmapData();
 
     // Update heatmap when map moves (debounced 800ms for performance)
@@ -559,6 +576,24 @@ export function Map() {
                style={{ border: '1px solid var(--border-default)' }}>
             <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
             Loading permits...
+          </div>
+        </div>
+      )}
+      
+      {/* Scout mode: Zoom in prompt when heatmap not visible */}
+      {mode === 'scout' && mapLoaded && !heatmapVisible && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50">
+          <div className="glass px-4 py-3 rounded-lg text-center"
+               style={{ border: '1px solid var(--border-default)' }}>
+            <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+              </svg>
+              Zoom in to see capital flow heatmap
+            </div>
+            <p className="text-xs text-[var(--text-tertiary)] mt-1">
+              Use rankings panel to jump to hotspots →
+            </p>
           </div>
         </div>
       )}

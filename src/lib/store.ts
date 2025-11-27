@@ -74,6 +74,7 @@ interface AppState {
   setAdjacentTracts: (tracts: CensusTractWithGeometry[]) => void;
   setTractScores: (scores: Record<TimeHorizon, TractScoreData> | null) => void;
   setSelectedScoutTract: (geoid: string | null) => void;
+  previewScoutLocation: (geoid: string, lat: number, lng: number) => void;
   setActiveFilters: (filters: FilterState) => void;
   toggleFilter: (category: keyof FilterState, subcategory: string) => void;
   setTimeHorizon: (horizon: TimeHorizon) => void;
@@ -116,6 +117,13 @@ export const useAppStore = create<AppState>((set) => ({
   setTractScores: (scores) => set({ tractScores: scores }),
   
   setSelectedScoutTract: (geoid) => set({ selectedScoutTract: geoid }),
+  
+  // Preview a location in Scout mode - fly to it and show heatmap
+  previewScoutLocation: (geoid, lat, lng) => set({
+    selectedScoutTract: geoid,
+    mapCenter: { latitude: lat, longitude: lng },
+    mapZoom: 14, // Zoom in enough to show heatmap (min is 12)
+  }),
   
   setActiveFilters: (filters) => set({ activeFilters: filters }),
   

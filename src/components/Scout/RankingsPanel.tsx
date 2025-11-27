@@ -32,7 +32,7 @@ function formatValue(value: number): string {
 }
 
 export function RankingsPanel() {
-  const { timeHorizon, drillIntoTract, setSelectedScoutTract, selectedScoutTract } = useAppStore();
+  const { timeHorizon, drillIntoTract, previewScoutLocation, selectedScoutTract } = useAppStore();
   const [selectedBorough, setSelectedBorough] = useState('all');
 
   const { data, isLoading, error } = useQuery({
@@ -53,8 +53,8 @@ export function RankingsPanel() {
   });
 
   const handleTractClick = (tract: RankedTract) => {
-    // Highlight on map first
-    setSelectedScoutTract(tract.geoid);
+    // Fly to location and show heatmap
+    previewScoutLocation(tract.geoid, tract.lat, tract.lng);
   };
 
   const handleDrillIn = (tract: RankedTract) => {
