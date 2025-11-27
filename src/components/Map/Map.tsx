@@ -5,9 +5,6 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useAppStore } from '@/lib/store';
 
-// Initialize Mapbox token
-mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
-
 // NYC bounds
 const NYC_BOUNDS: mapboxgl.LngLatBoundsLike = [
   [-74.259, 40.477], // SW
@@ -17,6 +14,7 @@ const NYC_BOUNDS: mapboxgl.LngLatBoundsLike = [
 export function Map() {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
+  const markerRef = useRef<mapboxgl.Marker | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   
   const { 
@@ -30,6 +28,14 @@ export function Map() {
   // Initialize map
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
+
+    // Set access token at runtime
+    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+    if (!token) {
+      console.error('Mapbox token not found');
+      return;
+    }
+    mapboxgl.accessToken = token;
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
@@ -208,8 +214,13 @@ export function Map() {
       duration: 1500,
     });
 
+    // Remove old marker if exists
+    if (markerRef.current) {
+      markerRef.current.remove();
+    }
+
     // Add marker for subject property
-    new mapboxgl.Marker({
+    markerRef.current = new mapboxgl.Marker({
       color: '#00d4ff',
     })
       .setLngLat([subjectAddress.longitude, subjectAddress.latitude])
@@ -219,8 +230,8 @@ export function Map() {
   return (
     <div 
       ref={mapContainer} 
-      className="absolute inset-0"
-      style={{ background: 'var(--bg-primary)' }}
+      className="absolute inset-0 w-full h-full"
+      style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}
     />
   );
 }

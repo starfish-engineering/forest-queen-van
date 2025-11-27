@@ -8,6 +8,7 @@ Development history and release notes for CapEx Scout.
 
 | Date | Version | Summary |
 |------|---------|---------|
+| [2025-11-27](./2025-11-27-mapbox-integration.md) | 0.1.1 | Mapbox integration & NYC address search |
 | [2025-11-27](./2025-11-27-phase-0-initial-setup.md) | 0.1.0 | Initial project setup - Phase 0-3 complete |
 
 ---

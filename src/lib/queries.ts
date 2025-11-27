@@ -144,6 +144,27 @@ interface GeocodeSuggestion {
   context?: Array<{ id: string; text: string }>;
 }
 
+// NYC borough/area names to filter results
+const NYC_AREAS = [
+  'new york', 'manhattan', 'brooklyn', 'queens', 'bronx', 'staten island',
+  'new york city', 'nyc'
+];
+
+function isNYCAddress(suggestion: GeocodeSuggestion): boolean {
+  const placeName = suggestion.place_name.toLowerCase();
+  
+  // Check if place_name contains NYC area AND "new york" state (not New Jersey)
+  const hasNYState = placeName.includes(', new york');
+  const hasNYCArea = NYC_AREAS.some(area => placeName.includes(area));
+  
+  // Exclude New Jersey results
+  if (placeName.includes('new jersey') || placeName.includes(', nj')) {
+    return false;
+  }
+  
+  return hasNYState || hasNYCArea;
+}
+
 export function useGeocodeAutocomplete(query: string) {
   return useQuery<GeocodeSuggestion[]>({
     queryKey: ['geocode', query],
@@ -153,20 +174,28 @@ export function useGeocodeAutocomplete(query: string) {
       const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
       if (!token) throw new Error('Mapbox token not configured');
       
-      // NYC bounding box
+      // NYC bounding box + proximity to Manhattan for better results
       const bbox = '-74.259,40.477,-73.700,40.917';
+      const proximity = '-73.9857,40.7484'; // Midtown Manhattan
       
       const res = await fetch(
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?` +
         `access_token=${token}&` +
         `bbox=${bbox}&` +
+        `proximity=${proximity}&` +
         `types=address&` +
-        `limit=5`
+        `limit=10` // Fetch more, then filter
       );
       
       if (!res.ok) throw new Error('Geocoding failed');
       const data = await res.json();
-      return data.features || [];
+      
+      // Filter to only NYC addresses and limit to 5
+      const nycResults = (data.features || [])
+        .filter(isNYCAddress)
+        .slice(0, 5);
+      
+      return nycResults;
     },
     enabled: query.length >= 3,
     staleTime: 30 * 1000, // 30 seconds
