@@ -31,7 +31,7 @@ export function ScoreCard() {
   const scoreColor = getScoreColor(score);
 
   return (
-    <div className="w-64 bg-[var(--bg-secondary)] border border-[var(--border-default)] rounded-xl overflow-hidden shadow-xl">
+    <div className="w-56 sm:w-64 bg-[var(--bg-secondary)] border border-[var(--border-default)] rounded-xl overflow-hidden shadow-xl">
       {/* Header */}
       <div className="px-4 py-3 border-b border-[var(--border-subtle)]">
         <h2 className="text-xs font-semibold text-[var(--text-tertiary)] tracking-wide uppercase">

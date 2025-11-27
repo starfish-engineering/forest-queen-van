@@ -87,7 +87,7 @@ export const useAppStore = create<AppState>((set) => ({
   includeAdjacentTracts: false,
   drawerOpen: false,
   selectedPermit: null,
-  filterPanelOpen: true,
+  filterPanelOpen: false, // Starts closed, desktop shows via CSS
   mapCenter: NYC_CENTER,
   mapZoom: 11,
   
