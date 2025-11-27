@@ -69,7 +69,7 @@ export function Map() {
     
     try {
       const filterTypes = getActiveFilterTypes();
-      const url = `/api/permits/nearby?lat=${lat}&lng=${lng}&radius=0.015&limit=300${filterTypes ? `&types=${filterTypes}` : ''}`;
+      const url = `/api/permits/nearby?lat=${lat}&lng=${lng}&radius=0.015&limit=300&timeHorizon=${timeHorizon}${filterTypes ? `&types=${filterTypes}` : ''}`;
       
       const response = await fetch(url);
       
@@ -153,14 +153,14 @@ export function Map() {
       });
       
       setPermitCount(geojson.features.length);
-      console.log(`Loaded ${geojson.features.length} permit markers`);
+      console.log(`Loaded ${geojson.features.length} permit markers (${timeHorizon})`);
     } catch (error) {
       console.error('Error loading permits:', error);
       setPermitCount(0);
     } finally {
       setPermitsLoading(false);
     }
-  }, [mapLoaded, getActiveFilterTypes]);
+  }, [mapLoaded, getActiveFilterTypes, timeHorizon]);
 
   // Initialize map
   useEffect(() => {
@@ -484,7 +484,7 @@ export function Map() {
     }, 1800);
   }, [subjectAddress, fetchNearbyPermits]);
 
-  // Refetch permits when filters change (if subject address exists)
+  // Refetch permits when filters or time horizon change (if subject address exists)
   useEffect(() => {
     if (!subjectAddress || !mapLoaded) return;
     
@@ -494,7 +494,7 @@ export function Map() {
     }, 300);
     
     return () => clearTimeout(timeoutId);
-  }, [activeFilters, subjectAddress, mapLoaded, fetchNearbyPermits]);
+  }, [activeFilters, timeHorizon, subjectAddress, mapLoaded, fetchNearbyPermits]);
 
   return (
     <>
@@ -504,8 +504,25 @@ export function Map() {
         style={{ background: 'var(--bg-primary)', minHeight: '100vh' }}
       />
       
-      {/* Loading indicator */}
-      {permitsLoading && (
+      {/* Initial map loading state */}
+      {!mapLoaded && (
+        <div className="absolute inset-0 bg-[var(--bg-primary)] flex items-center justify-center z-40">
+          <div className="text-center">
+            <div className="relative w-16 h-16 mx-auto mb-4">
+              <div className="absolute inset-0 rounded-full border-2 border-[var(--border-default)]" />
+              <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-cyan-400 animate-spin" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-2 h-2 rounded-full bg-cyan-400" />
+              </div>
+            </div>
+            <p className="text-sm text-[var(--text-secondary)]">Loading map...</p>
+            <p className="text-xs text-[var(--text-tertiary)] mt-1">Initializing NYC data</p>
+          </div>
+        </div>
+      )}
+      
+      {/* Permits loading indicator */}
+      {permitsLoading && mapLoaded && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50">
           <div className="glass px-4 py-2 rounded-lg flex items-center gap-2 text-sm"
                style={{ border: '1px solid var(--border-default)' }}>

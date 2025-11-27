@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/client';
 import { permits } from '@/lib/db/schema';
 import { sql, and, gte, lte, isNotNull, inArray } from 'drizzle-orm';
+import { getDateCutoff } from '@/lib/utils/date';
+import type { TimeHorizon } from '@/types';
 
 // Map filter categories to actual permit types
 const PERMIT_TYPE_MAP: Record<string, string[]> = {
@@ -23,6 +25,7 @@ export async function GET(request: NextRequest) {
   const radius = parseFloat(searchParams.get('radius') || '0.01'); // ~1km default
   const limit = parseInt(searchParams.get('limit') || '200');
   const types = searchParams.get('types'); // comma-separated filter IDs
+  const timeHorizon = (searchParams.get('timeHorizon') || '1yr') as TimeHorizon;
 
   if (!lat || !lng) {
     return NextResponse.json(
@@ -49,10 +52,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Get date cutoff based on time horizon
+    const cutoffDate = getDateCutoff(timeHorizon);
+    const cutoffStr = cutoffDate.toISOString().split('T')[0];
+
     // Build where conditions
     const conditions = [
       isNotNull(permits.latitude),
       isNotNull(permits.longitude),
+      gte(permits.filingDate, cutoffStr), // Time filter
       gte(sql`CAST(${permits.latitude} AS NUMERIC)`, minLat),
       lte(sql`CAST(${permits.latitude} AS NUMERIC)`, maxLat),
       gte(sql`CAST(${permits.longitude} AS NUMERIC)`, minLng),
