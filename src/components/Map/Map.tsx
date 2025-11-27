@@ -530,9 +530,9 @@ export function Map() {
   type HeatmapLOD = 'borough' | 'neighborhood' | 'tract' | 'granular';
   
   const getLODLevel = (zoom: number): HeatmapLOD => {
-    if (zoom >= 13) return 'granular';  // Show individual permits earlier
-    if (zoom >= 11) return 'tract';
-    if (zoom >= 9) return 'neighborhood';
+    if (zoom >= 15) return 'granular';  // Individual permits only at high zoom
+    if (zoom >= 12) return 'tract';      // Tract-level heatmap for longer
+    if (zoom >= 10) return 'neighborhood';
     return 'borough';
   };
 
@@ -676,21 +676,21 @@ export function Map() {
           
           // Adjust heatmap layer properties based on LOD level
           // Larger radius for coarser aggregation, smaller for finer detail
-          // Radius config - zoom ranges should match LOD thresholds
+          // Radius config - zoom ranges match LOD thresholds
+          // borough < 10, neighborhood 10-12, tract 12-15, granular >= 15
           const radiusConfig: Record<HeatmapLOD, mapboxgl.Expression> = {
-            borough: ['interpolate', ['linear'], ['zoom'], 8, 100, 9, 80],
-            neighborhood: ['interpolate', ['linear'], ['zoom'], 9, 60, 11, 45],
-            tract: ['interpolate', ['linear'], ['zoom'], 11, 35, 13, 25],
-            granular: ['interpolate', ['linear'], ['zoom'], 13, 20, 16, 30],
+            borough: ['interpolate', ['linear'], ['zoom'], 8, 100, 10, 70],
+            neighborhood: ['interpolate', ['linear'], ['zoom'], 10, 55, 12, 40],
+            tract: ['interpolate', ['linear'], ['zoom'], 12, 35, 15, 20],
+            granular: ['interpolate', ['linear'], ['zoom'], 15, 15, 18, 25],
           };
           
-          // Balanced intensity - visible but not all-red
-          // Make sure zoom ranges cover the actual LOD thresholds
+          // Intensity config - balanced visibility
           const intensityConfig: Record<HeatmapLOD, mapboxgl.Expression> = {
-            borough: ['interpolate', ['linear'], ['zoom'], 8, 0.4, 9, 0.5],
-            neighborhood: ['interpolate', ['linear'], ['zoom'], 9, 0.5, 11, 0.7],
-            tract: ['interpolate', ['linear'], ['zoom'], 11, 0.7, 13, 1.0],
-            granular: ['interpolate', ['linear'], ['zoom'], 13, 1.0, 16, 2.0],
+            borough: ['interpolate', ['linear'], ['zoom'], 8, 0.4, 10, 0.6],
+            neighborhood: ['interpolate', ['linear'], ['zoom'], 10, 0.6, 12, 0.8],
+            tract: ['interpolate', ['linear'], ['zoom'], 12, 0.8, 15, 1.2],
+            granular: ['interpolate', ['linear'], ['zoom'], 15, 1.2, 18, 2.5],
           };
 
           map.current?.setPaintProperty('permits-heat', 'heatmap-radius', radiusConfig[lodLevel] as unknown as number);
