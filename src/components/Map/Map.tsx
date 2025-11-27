@@ -294,6 +294,60 @@ export function Map() {
           'heatmap-opacity': 0.7,
         },
       });
+
+      // Individual permit markers for high zoom (Scout mode)
+      map.current?.addSource('scout-permits', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+
+      // Permit type colors
+      // NB = New Building (green), A1 = Major Alteration (orange), 
+      // A2 = Minor Alteration (blue), A3 = Renovation (purple), DM = Demolition (red)
+      map.current?.addLayer({
+        id: 'scout-permits-circles',
+        type: 'circle',
+        source: 'scout-permits',
+        paint: {
+          'circle-radius': [
+            'interpolate', ['linear'], ['zoom'],
+            14, 6,
+            16, 10,
+            18, 14,
+          ],
+          'circle-color': [
+            'match',
+            ['get', 'permitType'],
+            'NB', '#22c55e',      // New Building - green
+            'A1', '#f59e0b',      // Major Alteration - orange
+            'A2', '#3b82f6',      // Minor Alteration - blue
+            'A3', '#8b5cf6',      // Renovation - purple
+            'DM', '#ef4444',      // Demolition - red
+            '#6b7280',            // default - gray
+          ],
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff',
+          'circle-opacity': 0.9,
+        },
+      });
+
+      // Symbol layer for permit type icons
+      map.current?.addLayer({
+        id: 'scout-permits-labels',
+        type: 'symbol',
+        source: 'scout-permits',
+        minzoom: 16,
+        layout: {
+          'text-field': ['get', 'permitType'],
+          'text-size': 9,
+          'text-offset': [0, 0],
+          'text-anchor': 'center',
+          'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+        },
+        paint: {
+          'text-color': '#ffffff',
+        },
+      });
     });
 
     // Update store on map move
@@ -305,6 +359,43 @@ export function Map() {
         { latitude: center.lat, longitude: center.lng },
         zoom
       );
+    });
+
+    // Click handler for scout permit markers
+    map.current.on('click', 'scout-permits-circles', (e) => {
+      if (!e.features || e.features.length === 0) return;
+      
+      const feature = e.features[0];
+      const props = feature.properties;
+      const coords = (feature.geometry as GeoJSON.Point).coordinates;
+      
+      // Create popup with permit details
+      new mapboxgl.Popup({ closeButton: true, maxWidth: '300px' })
+        .setLngLat(coords as [number, number])
+        .setHTML(`
+          <div style="font-family: system-ui; padding: 8px;">
+            <div style="font-weight: 600; color: #00d4ff; margin-bottom: 4px;">
+              ${props?.permitType || 'Permit'} - ${props?.permitNumber || 'N/A'}
+            </div>
+            <div style="font-size: 12px; color: #888; margin-bottom: 8px;">
+              ${props?.address || 'Unknown address'}
+            </div>
+            <div style="font-size: 11px; color: #666;">
+              ${props?.description ? `<div style="margin-bottom: 4px;">${props.description}</div>` : ''}
+              ${props?.estimatedCost ? `<div><strong>Est. Cost:</strong> $${Number(props.estimatedCost).toLocaleString()}</div>` : ''}
+              ${props?.filingDate ? `<div><strong>Filed:</strong> ${props.filingDate}</div>` : ''}
+            </div>
+          </div>
+        `)
+        .addTo(map.current!);
+    });
+
+    // Change cursor on hover
+    map.current.on('mouseenter', 'scout-permits-circles', () => {
+      if (map.current) map.current.getCanvas().style.cursor = 'pointer';
+    });
+    map.current.on('mouseleave', 'scout-permits-circles', () => {
+      if (map.current) map.current.getCanvas().style.cursor = '';
     });
 
     return () => {
@@ -460,30 +551,46 @@ export function Map() {
         let features: GeoJSON.Feature[] = [];
 
         if (lodLevel === 'granular') {
-          // Zoomed in: use granular permit data
+          // Zoomed in: show individual permit markers instead of heatmap
           const bounds = map.current?.getBounds();
           if (!bounds) return;
 
-          const sw = bounds.getSouthWest();
-          const ne = bounds.getNorthEast();
-          const boundsParam = `${sw.lng},${sw.lat},${ne.lng},${ne.lat}`;
-
+          const center = bounds.getCenter();
+          
+          // Fetch actual permits with type info
           const response = await fetch(
-            `/api/heatmap?bounds=${boundsParam}&timeHorizon=${timeHorizon}`,
+            `/api/permits/nearby?lat=${center.lat}&lng=${center.lng}&radius=0.02&timeHorizon=${timeHorizon}&limit=500`,
             { signal: controller.signal }
           );
 
-          if (!response.ok) throw new Error('Granular heatmap fetch failed');
+          if (!response.ok) throw new Error('Permit fetch failed');
           const data = await response.json();
 
-          features = (data.points || []).map((p: { latitude: number; longitude: number; weight: number }) => ({
-            type: 'Feature' as const,
-            geometry: { type: 'Point' as const, coordinates: [p.longitude, p.latitude] },
-            properties: { weight: p.weight },
-          }));
+          // Update scout-permits source with individual markers
+          const scoutSource = map.current?.getSource('scout-permits') as mapboxgl.GeoJSONSource;
+          if (scoutSource && data.features) {
+            scoutSource.setData(data);
+            console.log(`[Scout] Showing ${data.features.length} individual permits`);
+          }
 
-          console.log(`Heatmap (granular): ${features.length} permits`);
+          // Hide heatmap, show markers
+          map.current?.setLayoutProperty('permits-heat', 'visibility', 'none');
+          map.current?.setLayoutProperty('scout-permits-circles', 'visibility', 'visible');
+          map.current?.setLayoutProperty('scout-permits-labels', 'visibility', 'visible');
+          
+          setHeatmapVisible(data.features?.length > 0);
+          return; // Don't update heatmap source
         } else {
+          // Hide markers, show heatmap for aggregated levels
+          map.current?.setLayoutProperty('permits-heat', 'visibility', 'visible');
+          map.current?.setLayoutProperty('scout-permits-circles', 'visibility', 'none');
+          map.current?.setLayoutProperty('scout-permits-labels', 'visibility', 'none');
+          
+          // Clear scout permits
+          const scoutSource = map.current?.getSource('scout-permits') as mapboxgl.GeoJSONSource;
+          if (scoutSource) {
+            scoutSource.setData({ type: 'FeatureCollection', features: [] });
+          }
           // Aggregated levels: borough, neighborhood, or tract
           const response = await fetch(
             `/api/heatmap/aggregated?timeHorizon=${timeHorizon}&level=${lodLevel}`,
@@ -678,7 +785,7 @@ export function Map() {
             )}
             {heatmapLOD === 'granular' && (
               <span className="text-cyan-400">
-                📍 Individual permits
+                📍 Individual permits • Click for details
               </span>
             )}
           </div>

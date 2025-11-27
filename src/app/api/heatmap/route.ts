@@ -72,18 +72,24 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform to heatmap points with weight based on capital
-    const points = filteredPermits
+    // Limit to 2000 permits max to prevent slowness at high zoom
+    const MAX_POINTS = 2000;
+    const limitedPermits = filteredPermits.length > MAX_POINTS 
+      ? filteredPermits.slice(0, MAX_POINTS)
+      : filteredPermits;
+    
+    const points = limitedPermits
       .filter(p => p.gis_latitude && p.gis_longitude)
       .map(p => {
         const transformed = transformPermit(p);
         const cost = transformed.estimatedCost || 0;
         
-        // Weight by capital investment
-        let weight = 1;
-        if (cost > 1000000) weight = 5;      // $1M+ = max intensity
-        else if (cost > 500000) weight = 4;  // $500K-1M
-        else if (cost > 100000) weight = 3;  // $100K-500K
-        else if (cost > 50000) weight = 2;   // $50K-100K
+        // Weight by capital investment - higher weights for visibility
+        let weight = 2;
+        if (cost > 1000000) weight = 10;      // $1M+ = max intensity
+        else if (cost > 500000) weight = 8;   // $500K-1M
+        else if (cost > 100000) weight = 6;   // $100K-500K
+        else if (cost > 50000) weight = 4;    // $50K-100K
 
         return {
           latitude: transformed.latitude!,
@@ -95,6 +101,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       points,
       total: points.length,
+      truncated: filteredPermits.length > MAX_POINTS,
       cached: permitCache?.timestamp === now ? false : true,
     });
   } catch (error) {
