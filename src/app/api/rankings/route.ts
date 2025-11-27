@@ -77,8 +77,8 @@ export async function GET(request: NextRequest) {
       LIMIT ${limit}
     `);
 
-    // Transform results
-    const tracts: RankedTract[] = (results.rows as Array<{
+    // Transform results - db.execute returns array directly
+    const tracts: RankedTract[] = (results as unknown as Array<{
       borough: string;
       block: string;
       permit_count: string;

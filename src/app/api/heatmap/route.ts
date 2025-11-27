@@ -61,8 +61,8 @@ export async function GET(request: NextRequest) {
       LIMIT 2000
     `);
 
-    // Transform to heatmap points
-    const points = (results.rows as Array<{
+    // Transform to heatmap points - db.execute returns array directly
+    const points = (results as unknown as Array<{
       latitude: string;
       longitude: string;
       estimated_cost: string | null;

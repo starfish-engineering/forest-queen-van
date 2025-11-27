@@ -78,8 +78,8 @@ export async function GET(request: NextRequest) {
       LIMIT 2000
     `);
 
-    // Transform results
-    const aggregated: AggregatedPoint[] = (results.rows as Array<{
+    // Transform results - db.execute returns array directly
+    const aggregated: AggregatedPoint[] = (results as unknown as Array<{
       group_key: string;
       borough: string;
       census_tract_geoid: string;
