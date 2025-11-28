@@ -79,6 +79,81 @@ export function usePermits(options: UsePermitsOptions) {
 }
 
 // ============================================
+// Nearby Permits Query (by lat/lng)
+// ============================================
+
+interface UseNearbyPermitsOptions {
+  lat?: number;
+  lng?: number;
+  timeHorizon: TimeHorizon;
+  radius?: number;
+  limit?: number;
+}
+
+interface NearbyPermitsResponse {
+  type: 'FeatureCollection';
+  features: Array<{
+    properties: {
+      id: string;
+      permitNumber: string | null;
+      permitType: string;
+      description: string | null;
+      filingDate: string | null;
+      address: string | null;
+      borough: string | null;
+      estimatedCost: number;
+    };
+  }>;
+}
+
+export function useNearbyPermits(options: UseNearbyPermitsOptions) {
+  const { lat, lng, timeHorizon, radius = 0.01, limit = 100 } = options;
+  
+  return useQuery({
+    queryKey: ['nearby-permits', lat, lng, timeHorizon, radius],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.set('lat', lat!.toString());
+      params.set('lng', lng!.toString());
+      params.set('timeHorizon', timeHorizon);
+      params.set('radius', radius.toString());
+      params.set('limit', limit.toString());
+      
+      const res = await fetch(`/api/permits/nearby?${params.toString()}`);
+      if (!res.ok) throw new Error('Failed to fetch nearby permits');
+      const data: NearbyPermitsResponse = await res.json();
+      
+      // Transform to PermitsResponse format for compatibility
+      const permits = data.features.map(f => ({
+        id: f.properties.id,
+        permitNumber: f.properties.permitNumber,
+        permitType: f.properties.permitType,
+        description: f.properties.description,
+        filingDate: f.properties.filingDate,
+        address: f.properties.address,
+        borough: f.properties.borough,
+        estimatedCost: f.properties.estimatedCost,
+      }));
+      
+      // Calculate byType counts
+      const byType: Record<string, number> = {};
+      permits.forEach(p => {
+        const type = p.permitType || 'Unknown';
+        byType[type] = (byType[type] || 0) + 1;
+      });
+      
+      return {
+        permits,
+        total: permits.length,
+        byType,
+      } as PermitsResponse;
+    },
+    enabled: !!lat && !!lng,
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+// ============================================
 // Census Tract Data
 // ============================================
 

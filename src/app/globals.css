@@ -224,3 +224,79 @@ body {
   -webkit-mask-composite: xor;
   mask-composite: exclude;
 }
+
+/* Text colors */
+.text-primary {
+  color: var(--text-primary);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.text-tertiary {
+  color: var(--text-tertiary);
+}
+
+.text-inverse {
+  color: var(--text-inverse);
+}
+
+.text-accent-primary {
+  color: var(--accent-primary);
+}
+
+.text-success {
+  color: var(--color-success);
+}
+
+.text-warning {
+  color: var(--color-warning);
+}
+
+.text-danger {
+  color: var(--color-danger);
+}
+
+/* Background colors */
+.bg-primary {
+  background-color: var(--bg-primary);
+}
+
+.bg-secondary {
+  background-color: var(--bg-secondary);
+}
+
+.bg-tertiary {
+  background-color: var(--bg-tertiary);
+}
+
+.bg-accent-primary {
+  background-color: var(--accent-primary);
+}
+
+.bg-success {
+  background-color: var(--color-success);
+}
+
+.bg-warning {
+  background-color: var(--color-warning);
+}
+
+.bg-danger {
+  background-color: var(--color-danger);
+}
+
+/* Border colors */
+.border-border {
+  border-color: var(--border-default);
+}
+
+/* Font families */
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}

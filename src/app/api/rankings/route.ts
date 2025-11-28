@@ -12,11 +12,11 @@ const BOROUGHS: Record<string, { name: string; fips: string }> = {
   'STATEN ISLAND': { name: 'Staten Island', fips: '36085' },
 };
 
-// Map time horizon to months
-const HORIZON_MONTHS: Record<TimeHorizon, number> = {
-  '6mo': 6,
-  '1yr': 12,
-  '3yr': 36,
+// Map time horizon to column suffix
+const HORIZON_COLUMNS: Record<TimeHorizon, { permits: string; value: string }> = {
+  '6mo': { permits: 'permits_6mo', value: 'value_6mo' },
+  '1yr': { permits: 'permits_1yr', value: 'value_1yr' },
+  '3yr': { permits: 'permits_3yr', value: 'value_3yr' },
 };
 
 export interface RankedTract {
@@ -39,61 +39,53 @@ export async function GET(request: NextRequest) {
   const limit = parseInt(searchParams.get('limit') || '50');
 
   try {
-    const monthsBack = HORIZON_MONTHS[timeHorizon] || 12;
-    const cutoff = new Date();
-    cutoff.setMonth(cutoff.getMonth() - monthsBack);
-    const cutoffDate = cutoff.toISOString().split('T')[0];
-    
-    // Midpoint for trend analysis
-    const midpoint = new Date();
-    midpoint.setMonth(midpoint.getMonth() - Math.floor(monthsBack / 2));
-    const midpointDate = midpoint.toISOString().split('T')[0];
+    const cols = HORIZON_COLUMNS[timeHorizon] || HORIZON_COLUMNS['1yr'];
 
-    // Build borough filter
-    const boroughFilter = borough && borough !== 'all' 
-      ? sql`AND UPPER(borough) = ${borough.toUpperCase()}`
+    // Build borough filter (handle both "all" and "ALL")
+    const boroughFilter = borough && borough.toLowerCase() !== 'all' 
+      ? sql`WHERE UPPER(borough) = ${borough.toUpperCase()}`
       : sql``;
 
-    // Query aggregated data from database
+    // Use materialized view for fast aggregated queries
+    // The view has pre-computed counts for 6mo, 1yr, 3yr windows
     const results = await db.execute(sql`
       SELECT 
         borough,
         block,
-        COUNT(*) as permit_count,
-        COALESCE(SUM(CAST(estimated_cost AS NUMERIC)), 0) as permit_value,
-        COUNT(*) FILTER (WHERE filing_date >= ${midpointDate}) as recent_count,
-        COUNT(*) FILTER (WHERE filing_date < ${midpointDate}) as older_count,
-        AVG(CAST(latitude AS NUMERIC)) as avg_lat,
-        AVG(CAST(longitude AS NUMERIC)) as avg_lng
-      FROM permits
-      WHERE filing_date >= ${cutoffDate}
-        AND latitude IS NOT NULL
-        AND longitude IS NOT NULL
-        AND block IS NOT NULL
+        ${sql.raw(cols.permits)} as permit_count,
+        ${sql.raw(cols.value)} as permit_value,
+        permits_6mo as recent_count,
+        permits_1yr - permits_6mo as older_count,
+        avg_lat,
+        avg_lng
+      FROM mv_block_rankings
         ${boroughFilter}
-      GROUP BY borough, block
-      HAVING COUNT(*) >= 2
-      ORDER BY COUNT(*) DESC, SUM(CAST(estimated_cost AS NUMERIC)) DESC
+      ORDER BY ${sql.raw(cols.permits)} DESC, ${sql.raw(cols.value)} DESC
       LIMIT ${limit}
     `);
 
-    // Transform results - db.execute returns array directly
-    const tracts: RankedTract[] = (results as unknown as Array<{
+    // Get raw results first
+    const rawResults = (results as unknown as Array<{
       borough: string;
       block: string;
-      permit_count: string;
-      permit_value: string;
-      recent_count: string;
-      older_count: string;
-      avg_lat: string;
-      avg_lng: string;
-    }>)
-      .filter(r => r.avg_lat && r.avg_lng)
-      .map((r, index) => {
-        const permitCount = parseInt(r.permit_count) || 0;
-        const permitValue = parseFloat(r.permit_value) || 0;
-        const recentCount = parseInt(r.recent_count) || 0;
-        const olderCount = parseInt(r.older_count) || 0;
+      permit_count: number;
+      permit_value: number;
+      recent_count: number;
+      older_count: number;
+      avg_lat: number;
+      avg_lng: number;
+    }>).filter(r => r.avg_lat && r.avg_lng);
+
+    // Calculate max values for percentile-based scoring
+    const maxPermits = Math.max(...rawResults.map(r => r.permit_count || 0), 1);
+    const maxValue = Math.max(...rawResults.map(r => r.permit_value || 0), 1);
+
+    // Transform results with percentile-based scores
+    const tracts: RankedTract[] = rawResults.map((r, index) => {
+        const permitCount = r.permit_count || 0;
+        const permitValue = r.permit_value || 0;
+        const recentCount = r.recent_count || 0;
+        const olderCount = r.older_count || 0;
 
         // Calculate trend
         let trend: 'rising' | 'steady' | 'cooling' = 'steady';
@@ -105,10 +97,11 @@ export async function GET(request: NextRequest) {
           trend = 'rising';
         }
 
-        // Calculate score
-        const score = Math.min(100, Math.round(
-          (permitCount * 5) + (Math.log10(permitValue + 1) * 3)
-        ));
+        // Calculate score using percentile-based approach
+        // 60% weight on permit count percentile, 40% on value percentile
+        const countPercentile = (permitCount / maxPermits) * 100;
+        const valuePercentile = (Math.log10(permitValue + 1) / Math.log10(maxValue + 1)) * 100;
+        const score = Math.round(countPercentile * 0.6 + valuePercentile * 0.4);
 
         const boroughKey = (r.borough || '').toUpperCase();
         const boroughInfo = BOROUGHS[boroughKey] || { name: r.borough || 'NYC', fips: '36061' };
@@ -122,8 +115,8 @@ export async function GET(request: NextRequest) {
           permitCount,
           permitValue,
           trend,
-          lat: parseFloat(r.avg_lat),
-          lng: parseFloat(r.avg_lng),
+          lat: r.avg_lat,
+          lng: r.avg_lng,
         };
       });
 
@@ -132,10 +125,23 @@ export async function GET(request: NextRequest) {
       timeHorizon,
       borough: borough || 'all',
       count: tracts.length,
-      source: 'database',
+      source: 'materialized_view',
     });
   } catch (error) {
     console.error('Rankings query error:', error);
+    
+    // Check if materialized view doesn't exist yet
+    const errorMsg = String(error);
+    if (errorMsg.includes('mv_block_rankings') && errorMsg.includes('does not exist')) {
+      return NextResponse.json(
+        { 
+          error: 'Materialized views not initialized', 
+          details: 'Run: psql $DATABASE_URL -f scripts/migrations/001-optimize-queries.sql'
+        },
+        { status: 503 }
+      );
+    }
+    
     return NextResponse.json(
       { error: 'Failed to fetch rankings', details: String(error) },
       { status: 500 }

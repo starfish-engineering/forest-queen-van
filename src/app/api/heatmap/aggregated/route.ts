@@ -3,13 +3,6 @@ import { db } from '@/lib/db/client';
 import { sql } from 'drizzle-orm';
 import type { TimeHorizon } from '@/types';
 
-// Map time horizon to months
-const HORIZON_MONTHS: Record<TimeHorizon, number> = {
-  '6mo': 6,
-  '1yr': 12,
-  '3yr': 36,
-};
-
 // Aggregation levels for LOD
 export type AggregationLevel = 'borough' | 'neighborhood' | 'tract';
 
@@ -32,91 +25,80 @@ const BOROUGH_CENTERS: Record<string, { lat: number; lng: number }> = {
   'STATEN ISLAND': { lat: 40.5795, lng: -74.1502 },
 };
 
+// Map time horizon to column names in materialized views
+const HORIZON_COLUMNS: Record<TimeHorizon, { permits: string; value: string }> = {
+  '6mo': { permits: 'permits_6mo', value: 'value_6mo' },
+  '1yr': { permits: 'permits_1yr', value: 'value_1yr' },
+  '3yr': { permits: 'permits_3yr', value: 'value_3yr' },
+};
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const timeHorizon = (searchParams.get('timeHorizon') || '1yr') as TimeHorizon;
   const level = (searchParams.get('level') || 'neighborhood') as AggregationLevel;
 
   try {
-    const monthsBack = HORIZON_MONTHS[timeHorizon] || 12;
-    const cutoff = new Date();
-    cutoff.setMonth(cutoff.getMonth() - monthsBack);
-    const cutoffDate = cutoff.toISOString().split('T')[0];
-
+    const cols = HORIZON_COLUMNS[timeHorizon] || HORIZON_COLUMNS['1yr'];
     let results;
 
     if (level === 'borough') {
+      // Use borough materialized view
       results = await db.execute(sql`
         SELECT 
           borough as group_key,
           borough,
-          COUNT(*) as permit_count,
-          COALESCE(SUM(estimated_cost::numeric), 0) as total_capital,
-          AVG(latitude::numeric) as avg_lat,
-          AVG(longitude::numeric) as avg_lng
-        FROM permits
-        WHERE filing_date >= ${cutoffDate}
-          AND latitude IS NOT NULL
-          AND longitude IS NOT NULL
-          AND borough IS NOT NULL
-        GROUP BY borough
-        ORDER BY COUNT(*) DESC
+          ${sql.raw(cols.permits)} as permit_count,
+          permit_value as total_capital,
+          avg_lat,
+          avg_lng
+        FROM mv_borough_aggregations
+        ORDER BY ${sql.raw(cols.permits)} DESC
       `);
     } else if (level === 'tract') {
+      // Use tract materialized view
       results = await db.execute(sql`
         SELECT 
           census_tract_geoid as group_key,
           borough,
           census_tract_geoid,
-          COUNT(*) as permit_count,
-          COALESCE(SUM(estimated_cost::numeric), 0) as total_capital,
-          AVG(latitude::numeric) as avg_lat,
-          AVG(longitude::numeric) as avg_lng
-        FROM permits
-        WHERE filing_date >= ${cutoffDate}
-          AND latitude IS NOT NULL
-          AND longitude IS NOT NULL
-          AND census_tract_geoid IS NOT NULL
-        GROUP BY census_tract_geoid, borough
-        ORDER BY COUNT(*) DESC
+          ${sql.raw(cols.permits)} as permit_count,
+          ${sql.raw(cols.value)} as total_capital,
+          avg_lat,
+          avg_lng
+        FROM mv_tract_aggregations
+        ORDER BY ${sql.raw(cols.permits)} DESC
         LIMIT 2000
       `);
     } else {
-      // neighborhood - group by borough + block
+      // neighborhood - use block rankings view
       results = await db.execute(sql`
         SELECT 
           CONCAT(borough, '-', block) as group_key,
           borough,
-          COUNT(*) as permit_count,
-          COALESCE(SUM(estimated_cost::numeric), 0) as total_capital,
-          AVG(latitude::numeric) as avg_lat,
-          AVG(longitude::numeric) as avg_lng
-        FROM permits
-        WHERE filing_date >= ${cutoffDate}
-          AND latitude IS NOT NULL
-          AND longitude IS NOT NULL
-          AND borough IS NOT NULL
-          AND block IS NOT NULL
-        GROUP BY borough, block
-        ORDER BY COUNT(*) DESC
+          ${sql.raw(cols.permits)} as permit_count,
+          ${sql.raw(cols.value)} as total_capital,
+          avg_lat,
+          avg_lng
+        FROM mv_block_rankings
+        ORDER BY ${sql.raw(cols.permits)} DESC
         LIMIT 2000
       `);
     }
 
-    // Transform results
+    // Transform results - postgres returns bigint/numeric as strings, so parse them
     const aggregated: AggregatedPoint[] = (results as unknown as Array<{
       group_key: string;
       borough: string;
       census_tract_geoid?: string;
-      permit_count: string;
-      total_capital: string;
-      avg_lat: string;
-      avg_lng: string;
+      permit_count: string | number;
+      total_capital: string | number;
+      avg_lat: string | number;
+      avg_lng: string | number;
     }>)
       .filter(r => r.avg_lat && r.avg_lng && r.group_key)
       .map(r => {
-        let lat = parseFloat(r.avg_lat);
-        let lng = parseFloat(r.avg_lng);
+        let lat = Number(r.avg_lat);
+        let lng = Number(r.avg_lng);
         
         // For borough level, use predefined centers
         if (level === 'borough' && r.borough && BOROUGH_CENTERS[r.borough.toUpperCase()]) {
@@ -128,8 +110,8 @@ export async function GET(request: NextRequest) {
           key: r.group_key,
           borough: r.borough,
           censusTract: r.census_tract_geoid,
-          permitCount: parseInt(r.permit_count) || 0,
-          totalCapital: parseFloat(r.total_capital) || 0,
+          permitCount: Number(r.permit_count) || 0,
+          totalCapital: Number(r.total_capital) || 0,
           lat,
           lng,
         };
@@ -141,10 +123,23 @@ export async function GET(request: NextRequest) {
       points: aggregated,
       count: aggregated.length,
       level,
-      source: 'database',
+      source: 'materialized_view',
     });
   } catch (error) {
     console.error('Aggregated heatmap error:', error);
+    
+    // Check if materialized view doesn't exist yet
+    const errorMsg = String(error);
+    if (errorMsg.includes('mv_') && errorMsg.includes('does not exist')) {
+      return NextResponse.json(
+        { 
+          error: 'Materialized views not initialized', 
+          details: 'Run: psql $DATABASE_URL -f scripts/migrations/001-optimize-queries.sql'
+        },
+        { status: 503 }
+      );
+    }
+    
     return NextResponse.json(
       { error: 'Failed to fetch aggregated data', details: String(error) },
       { status: 500 }

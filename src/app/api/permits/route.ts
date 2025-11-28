@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/client';
 import { permits } from '@/lib/db/schema';
-import { sql, and, gte, inArray } from 'drizzle-orm';
+import { and, gte, inArray } from 'drizzle-orm';
 import { calculateDistance } from '@/lib/utils/distance';
 import { getDateCutoff } from '@/lib/utils/date';
 import type { TimeHorizon, PermitData, PermitCategory } from '@/types';
@@ -27,7 +27,6 @@ export async function GET(request: NextRequest) {
   
   const tractParam = searchParams.get('tract');
   const timeHorizon = (searchParams.get('timeHorizon') || '1yr') as TimeHorizon;
-  const typesParam = searchParams.get('types');
   const subjectLat = searchParams.get('subjectLat');
   const subjectLng = searchParams.get('subjectLng');
 
@@ -42,7 +41,7 @@ export async function GET(request: NextRequest) {
     const tractIds = tractParam.split(',').filter(Boolean);
     const cutoffDate = getDateCutoff(timeHorizon);
 
-    // Build query conditions
+    // Build query conditions - uses idx_permits_tract_date index
     const conditions = [
       inArray(permits.censusTractGeoid, tractIds),
       gte(permits.filingDate, cutoffDate.toISOString().split('T')[0]),
@@ -55,14 +54,14 @@ export async function GET(request: NextRequest) {
       .where(and(...conditions))
       .limit(500);
 
-    // Transform results
+    // Transform results - coordinates are now double precision (no parsing needed)
     const hasSubjectCoords = subjectLat && subjectLng;
     const subjectLatNum = hasSubjectCoords ? parseFloat(subjectLat) : 0;
     const subjectLngNum = hasSubjectCoords ? parseFloat(subjectLng) : 0;
 
     const transformedPermits: PermitData[] = results.map((permit) => {
-      const lat = permit.latitude ? parseFloat(permit.latitude) : 0;
-      const lng = permit.longitude ? parseFloat(permit.longitude) : 0;
+      const lat = permit.latitude ?? 0;
+      const lng = permit.longitude ?? 0;
       
       let distanceFromSubject: number | undefined;
       if (hasSubjectCoords && lat && lng) {
@@ -77,7 +76,7 @@ export async function GET(request: NextRequest) {
         description: permit.description || undefined,
         filingDate: permit.filingDate,
         issuanceDate: permit.issuanceDate || undefined,
-        estimatedCost: permit.estimatedCost ? parseFloat(permit.estimatedCost) : undefined,
+        estimatedCost: permit.estimatedCost ?? undefined,
         address: permit.address || 'Address not available',
         borough: permit.borough || undefined,
         latitude: lat,
@@ -123,4 +122,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

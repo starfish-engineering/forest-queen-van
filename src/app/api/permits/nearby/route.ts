@@ -38,7 +38,8 @@ export async function GET(request: NextRequest) {
     const minLng = lng - radius;
     const maxLng = lng + radius;
 
-    // Query permits from database - use direct comparison (no cast) for index usage
+    // Query permits from database - random sample across time range
+    // Using TABLESAMPLE or random ordering to get diverse dates, not just recent
     const results = await db.execute(sql`
       SELECT 
         id,
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
       WHERE latitude BETWEEN ${minLat.toString()} AND ${maxLat.toString()}
         AND longitude BETWEEN ${minLng.toString()} AND ${maxLng.toString()}
         AND filing_date >= ${cutoffDate}
-      ORDER BY filing_date DESC
+      ORDER BY RANDOM()
       LIMIT ${limit}
     `);
 

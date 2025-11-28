@@ -1,4 +1,4 @@
-import { pgTable, serial, varchar, text, date, timestamp, numeric, boolean, jsonb, unique, index } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, date, timestamp, numeric, boolean, jsonb, unique, index, doublePrecision, integer } from 'drizzle-orm/pg-core';
 
 // Census tract boundaries (pre-loaded from Census Bureau)
 export const censusTracts = pgTable('census_tracts', {
@@ -10,7 +10,7 @@ export const censusTracts = pgTable('census_tracts', {
   name: varchar('name', { length: 100 }),
   // Geometry stored as text (GeoJSON) - PostGIS operations done via raw SQL
   geometry: text('geometry').notNull(),
-  landAreaSqm: numeric('land_area_sqm'),
+  landAreaSqm: doublePrecision('land_area_sqm'),
   createdAt: timestamp('created_at').defaultNow(),
 }, (table) => [
   index('idx_census_tracts_geoid').on(table.geoid),
@@ -26,14 +26,14 @@ export const permits = pgTable('permits', {
   filingDate: date('filing_date').notNull(),
   issuanceDate: date('issuance_date'),
   expirationDate: date('expiration_date'),
-  estimatedCost: numeric('estimated_cost'),
+  estimatedCost: doublePrecision('estimated_cost'),
   address: varchar('address', { length: 255 }),
   borough: varchar('borough', { length: 20 }),
   block: varchar('block', { length: 10 }),
   lot: varchar('lot', { length: 10 }),
   bin: varchar('bin', { length: 10 }), // Building Identification Number
-  latitude: numeric('latitude', { precision: 10, scale: 7 }),
-  longitude: numeric('longitude', { precision: 10, scale: 7 }),
+  latitude: doublePrecision('latitude'),
+  longitude: doublePrecision('longitude'),
   censusTractGeoid: varchar('census_tract_geoid', { length: 11 }),
   rawData: jsonb('raw_data'),
   createdAt: timestamp('created_at').defaultNow(),
@@ -42,7 +42,6 @@ export const permits = pgTable('permits', {
   index('idx_permits_filing_date').on(table.filingDate),
   index('idx_permits_census_tract').on(table.censusTractGeoid),
   index('idx_permits_type').on(table.permitType),
-  index('idx_permits_coords').on(table.latitude, table.longitude),
 ]);
 
 // Business licenses
@@ -57,8 +56,8 @@ export const businesses = pgTable('businesses', {
   expirationDate: date('expiration_date'),
   address: varchar('address', { length: 255 }),
   borough: varchar('borough', { length: 20 }),
-  latitude: numeric('latitude', { precision: 10, scale: 7 }),
-  longitude: numeric('longitude', { precision: 10, scale: 7 }),
+  latitude: doublePrecision('latitude'),
+  longitude: doublePrecision('longitude'),
   censusTractGeoid: varchar('census_tract_geoid', { length: 11 }),
   isHighEndIndicator: boolean('is_high_end_indicator').default(false), // flagged as "bougie"
   rawData: jsonb('raw_data'),
@@ -67,7 +66,6 @@ export const businesses = pgTable('businesses', {
 }, (table) => [
   index('idx_businesses_type').on(table.businessType),
   index('idx_businesses_census_tract').on(table.censusTractGeoid),
-  index('idx_businesses_coords').on(table.latitude, table.longitude),
 ]);
 
 // Liquor licenses (NYC SLA)
@@ -83,14 +81,13 @@ export const liquorLicenses = pgTable('liquor_licenses', {
   county: varchar('county', { length: 50 }),
   licenseIssueDate: date('license_issue_date'),
   licenseExpirationDate: date('license_expiration_date'),
-  latitude: numeric('latitude', { precision: 10, scale: 7 }),
-  longitude: numeric('longitude', { precision: 10, scale: 7 }),
+  latitude: doublePrecision('latitude'),
+  longitude: doublePrecision('longitude'),
   censusTractGeoid: varchar('census_tract_geoid', { length: 11 }),
   rawData: jsonb('raw_data'),
   createdAt: timestamp('created_at').defaultNow(),
 }, (table) => [
   index('idx_liquor_licenses_census_tract').on(table.censusTractGeoid),
-  index('idx_liquor_licenses_coords').on(table.latitude, table.longitude),
 ]);
 
 // Pre-computed tract scores (refreshed daily)
@@ -98,12 +95,12 @@ export const tractScores = pgTable('tract_scores', {
   id: serial('id').primaryKey(),
   censusTractGeoid: varchar('census_tract_geoid', { length: 11 }).notNull(),
   timeHorizon: varchar('time_horizon', { length: 10 }).notNull(), // '6mo', '1yr', '3yr'
-  totalPermits: numeric('total_permits').default('0'),
-  totalPermitValue: numeric('total_permit_value').default('0'),
-  permitDensity: numeric('permit_density'), // permits per sq km
-  businessCount: numeric('business_count').default('0'),
-  highEndBusinessCount: numeric('high_end_business_count').default('0'),
-  compositeScore: numeric('composite_score'),
+  totalPermits: integer('total_permits').default(0),
+  totalPermitValue: doublePrecision('total_permit_value').default(0),
+  permitDensity: doublePrecision('permit_density'), // permits per sq km
+  businessCount: integer('business_count').default(0),
+  highEndBusinessCount: integer('high_end_business_count').default(0),
+  compositeScore: doublePrecision('composite_score'),
   computedAt: timestamp('computed_at').defaultNow(),
 }, (table) => [
   unique('tract_scores_unique').on(table.censusTractGeoid, table.timeHorizon),

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 5847",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -16,7 +16,9 @@
     "etl:businesses": "tsx scripts/etl/dca-businesses.ts",
     "etl:liquor": "tsx scripts/etl/sla-liquor.ts",
     "etl:all": "npm run etl:permits && npm run etl:businesses && npm run etl:liquor",
-    "score:compute": "tsx scripts/seed/compute-scores.ts"
+    "score:compute": "tsx scripts/seed/compute-scores.ts",
+    "db:optimize": "psql $DATABASE_URL -f scripts/migrations/001-optimize-queries.sql",
+    "db:refresh-views": "tsx scripts/refresh-views.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.11",

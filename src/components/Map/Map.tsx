@@ -5,10 +5,10 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useAppStore } from '@/lib/store';
 
-// NYC bounds
+// NYC bounds - tighter focus on the 5 boroughs
 const NYC_BOUNDS: mapboxgl.LngLatBoundsLike = [
-  [-74.259, 40.477], // SW
-  [-73.700, 40.917], // NE
+  [-74.05, 40.54],  // SW - cuts off most of NJ
+  [-73.70, 40.92],  // NE
 ];
 
 // Permit type colors
@@ -245,6 +245,87 @@ export function Map() {
         },
       });
 
+      // Choropleth layer - census tract boundaries colored by activity
+      map.current?.addSource('choropleth-tracts', {
+        type: 'geojson',
+        data: {
+          type: 'FeatureCollection',
+          features: [],
+        },
+      });
+
+      // Choropleth fill layer - Mashvisor-style heatmap
+      // Purple → Blue → Green → Yellow → Orange → Red
+      map.current?.addLayer({
+        id: 'choropleth-fill',
+        type: 'fill',
+        source: 'choropleth-tracts',
+        filter: ['>', ['get', 'permitCount'], 0],
+        paint: {
+          'fill-color': [
+            'interpolate',
+            ['linear'],
+            ['get', 'score'],
+            0,  '#4a1486',   // Deep purple - coldest
+            15, '#6a51a3',   // Purple
+            30, '#3182bd',   // Blue
+            45, '#31a354',   // Green
+            60, '#addd8e',   // Light green
+            70, '#f7f720',   // Yellow
+            80, '#fd8d3c',   // Orange
+            90, '#e31a1c',   // Red
+            100, '#b10026',  // Dark red - hottest
+          ],
+          'fill-opacity': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            9, 0.85,
+            12, 0.8,
+            15, 0.7,
+          ],
+        },
+      });
+
+      // Minimal outline - almost invisible for smoother look
+      map.current?.addLayer({
+        id: 'choropleth-outline',
+        type: 'line',
+        source: 'choropleth-tracts',
+        filter: ['>', ['get', 'permitCount'], 0],
+        paint: {
+          'line-color': 'rgba(255, 255, 255, 0.08)',
+          'line-width': 0.5,
+        },
+      });
+
+      // Tract labels - show permit count in bubbles (at medium zoom)
+      map.current?.addLayer({
+        id: 'choropleth-labels',
+        type: 'symbol',
+        source: 'choropleth-tracts',
+        filter: ['>', ['get', 'permitCount'], 10], // Only show for tracts with 10+ permits
+        minzoom: 11,
+        maxzoom: 15,
+        layout: {
+          'text-field': ['get', 'permitCount'],
+          'text-size': [
+            'interpolate', ['linear'], ['zoom'],
+            11, 10,
+            13, 12,
+            15, 14,
+          ],
+          'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+          'text-allow-overlap': false,
+          'text-ignore-placement': false,
+        },
+        paint: {
+          'text-color': '#ffffff',
+          'text-halo-color': 'rgba(0, 0, 0, 0.7)',
+          'text-halo-width': 1.5,
+        },
+      });
+
       // Heatmap layer placeholder
       map.current?.addSource('permits-heatmap', {
         type: 'geojson',
@@ -259,39 +340,43 @@ export function Map() {
         type: 'heatmap',
         source: 'permits-heatmap',
         paint: {
-          'heatmap-weight': [
-            'interpolate',
-            ['linear'],
-            ['get', 'weight'],
-            0, 0,
-            10, 1,
-          ],
+          // Weight: maps feature weight (1-2.5) to heat contribution
+          'heatmap-weight': ['get', 'weight'],
+          // Intensity: controls overall heat visibility
           'heatmap-intensity': [
             'interpolate',
             ['linear'],
             ['zoom'],
-            10, 1,
-            15, 3,
+            9, 1,
+            12, 1.5,
+            15, 2,
           ],
+          // Smooth color ramp with gradual transitions
           'heatmap-color': [
             'interpolate',
             ['linear'],
             ['heatmap-density'],
             0, 'rgba(0,0,0,0)',
-            0.2, '#2c7bb6',
-            0.4, '#abd9e9',
-            0.6, '#ffffbf',
-            0.8, '#fdae61',
-            1, '#d7191c',
+            0.05, 'rgba(65, 182, 196, 0.3)',  // Light teal - very low
+            0.15, 'rgba(127, 205, 187, 0.5)', // Seafoam - low
+            0.3, 'rgba(199, 233, 180, 0.6)',  // Light green - low-medium
+            0.45, 'rgba(255, 255, 178, 0.7)', // Pale yellow - medium
+            0.6, 'rgba(254, 204, 92, 0.8)',   // Gold - medium-high
+            0.75, 'rgba(253, 141, 60, 0.85)', // Orange - high
+            0.9, 'rgba(240, 59, 32, 0.9)',    // Red-orange - very high
+            1.0, 'rgba(189, 0, 38, 1)',       // Deep red - hottest
           ],
+          // Larger radius for smoother, more continuous appearance
           'heatmap-radius': [
             'interpolate',
             ['linear'],
             ['zoom'],
-            10, 15,
-            15, 30,
+            9, 30,
+            11, 25,
+            13, 20,
+            15, 15,
           ],
-          'heatmap-opacity': 0.7,
+          'heatmap-opacity': 0.85,
         },
       });
 
@@ -314,9 +399,9 @@ export function Map() {
         paint: {
           'circle-radius': [
             'interpolate', ['linear'], ['zoom'],
-            14, 6,
-            16, 10,
-            18, 14,
+            14, 4,
+            16, 6,
+            18, 8,
           ],
           'circle-color': [
             'match',
@@ -521,6 +606,99 @@ export function Map() {
     }
   }, [mapCenter.latitude, mapCenter.longitude, mapZoom, mapLoaded]);
 
+  // Load choropleth data - census tract boundaries with scores
+  const [choroplethLoaded, setChoroplethLoaded] = useState(false);
+  const [lastChoroplethHorizon, setLastChoroplethHorizon] = useState<string | null>(null);
+  
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+    
+    const loadChoropleth = async () => {
+      try {
+        if (mode !== 'scout') {
+          // Hide choropleth in lookup mode
+          if (map.current?.getLayer('choropleth-fill')) {
+            map.current?.setLayoutProperty('choropleth-fill', 'visibility', 'none');
+          }
+          if (map.current?.getLayer('choropleth-outline')) {
+            map.current?.setLayoutProperty('choropleth-outline', 'visibility', 'none');
+          }
+          if (map.current?.getLayer('choropleth-labels')) {
+            map.current?.setLayoutProperty('choropleth-labels', 'visibility', 'none');
+          }
+          return;
+        }
+        
+        // Show choropleth if layers exist
+        if (map.current?.getLayer('choropleth-fill')) {
+          map.current?.setLayoutProperty('choropleth-fill', 'visibility', 'visible');
+        }
+        if (map.current?.getLayer('choropleth-outline')) {
+          map.current?.setLayoutProperty('choropleth-outline', 'visibility', 'visible');
+        }
+        if (map.current?.getLayer('choropleth-labels')) {
+          map.current?.setLayoutProperty('choropleth-labels', 'visibility', 'visible');
+        }
+      
+        // Refetch if timeHorizon changed or not loaded yet
+        if (choroplethLoaded && lastChoroplethHorizon === timeHorizon) return;
+        
+        // Fetch tract boundaries
+        const boundariesRes = await fetch('/data/nyc-census-tracts.json');
+        if (!boundariesRes.ok) throw new Error('Failed to load tract boundaries');
+        const boundaries = await boundariesRes.json();
+        
+        // Fetch tract scores
+        const scoresRes = await fetch(`/api/choropleth?timeHorizon=${timeHorizon}`);
+        if (!scoresRes.ok) throw new Error('Failed to load tract scores');
+        const scoresData = await scoresRes.json();
+        
+        // Create lookup object for scores by tract code
+        // Our data has tract codes like "137", boundary data has full GEOID like "36061013700"
+        // The last 6 digits of GEOID represent tract (e.g., 013700 = tract 137.00)
+        const scoreMap: Record<string, { score: number; permitCount: number }> = {};
+        for (const tract of scoresData.tracts) {
+          // Store by original key
+          scoreMap[tract.geoid] = { score: tract.score, permitCount: tract.permitCount };
+          // Also store by tract code * 100 (to match Census format)
+          const tractCode = (parseInt(tract.geoid) * 100).toString().padStart(6, '0');
+          scoreMap[tractCode] = { score: tract.score, permitCount: tract.permitCount };
+        }
+        
+        // Join boundaries with scores
+        const features = boundaries.features.map((f: GeoJSON.Feature) => {
+          const geoid = f.properties?.GEOID || f.properties?.geoid || '';
+          // Extract tract code (last 6 digits of GEOID)
+          const tractCode = geoid.slice(-6);
+          // Try matching directly or via tract code
+          const scores = scoreMap[tractCode] || scoreMap[geoid] || { score: 5, permitCount: 0 };
+          
+          return {
+            ...f,
+            properties: {
+              ...f.properties,
+              score: scores.score,
+              permitCount: scores.permitCount,
+            },
+          };
+        });
+        
+        // Update source
+        const source = map.current?.getSource('choropleth-tracts') as mapboxgl.GeoJSONSource;
+        if (source) {
+          source.setData({ type: 'FeatureCollection', features });
+          setChoroplethLoaded(true);
+          setLastChoroplethHorizon(timeHorizon);
+          console.log(`[Choropleth] Loaded ${features.length} tracts for ${timeHorizon}`);
+        }
+      } catch (error) {
+        console.error('[Choropleth] Load error:', error);
+      }
+    };
+    
+    loadChoropleth();
+  }, [mode, timeHorizon, mapLoaded, choroplethLoaded]);
+
   // Fetch and display heatmap data - ONLY in Scout mode
   // Multi-level LOD for smooth transitions:
   // - Borough level (zoom < 10): ~5 points
@@ -621,14 +799,15 @@ export function Map() {
           setHeatmapVisible(data.features?.length > 0);
           return; // Don't update heatmap source
         } else {
-          // Hide markers, show heatmap for aggregated levels
-          console.log('[Heatmap] Showing heatmap, hiding markers...');
+          // Use choropleth for heat visualization (no heatmap layer needed)
+          // Just hide heatmap and scout markers - choropleth handles visualization
+          console.log('[Choropleth Mode] Using census tract choropleth for heat visualization');
           try {
-            map.current?.setLayoutProperty('permits-heat', 'visibility', 'visible');
+            map.current?.setLayoutProperty('permits-heat', 'visibility', 'none');
             map.current?.setLayoutProperty('scout-permits-circles', 'visibility', 'none');
             map.current?.setLayoutProperty('scout-permits-labels', 'visibility', 'none');
           } catch (e) {
-            console.error('[Heatmap] Error setting layer visibility:', e);
+            console.error('[Heatmap] Error hiding layers:', e);
           }
           
           // Clear scout permits
@@ -636,65 +815,15 @@ export function Map() {
           if (scoutSource) {
             scoutSource.setData({ type: 'FeatureCollection', features: [] });
           }
-          // Aggregated levels: borough, neighborhood, or tract
-          const response = await fetch(
-            `/api/heatmap/aggregated?timeHorizon=${timeHorizon}&level=${lodLevel}`,
-            { signal: controller.signal }
-          );
-
-          if (!response.ok) throw new Error('Aggregated heatmap fetch failed');
-          const data = await response.json();
-
-          // Convert aggregated data to heatmap points with capital-based weights
-          const points = data.points || [];
-          const maxCapital = Math.max(...points.map((t: { totalCapital: number }) => t.totalCapital), 1);
-          const maxCount = Math.max(...points.map((t: { permitCount: number }) => t.permitCount), 1);
           
-          features = points.map((t: { lat: number; lng: number; totalCapital: number; permitCount: number }) => {
-            // Normalize weights relative to max values (0-1 range)
-            const capitalNorm = t.totalCapital / maxCapital;
-            const countNorm = t.permitCount / maxCount;
-            
-            // Weight combining capital and count, keeping values low (0.5-3 range)
-            const weight = 0.5 + (capitalNorm * 1.5) + (countNorm * 1);
-
-            return {
-              type: 'Feature' as const,
-              geometry: { type: 'Point' as const, coordinates: [t.lng, t.lat] },
-              properties: { weight },
-            };
-          });
-
-          const totalPermits = points.reduce((s: number, t: { permitCount: number }) => s + t.permitCount, 0);
-          console.log(`Heatmap (${lodLevel}): ${features.length} points, ~${totalPermits} permits`);
-        }
-
-        const source = map.current?.getSource('permits-heatmap') as mapboxgl.GeoJSONSource;
-        if (source) {
-          source.setData({ type: 'FeatureCollection', features });
-          setHeatmapVisible(features.length > 0);
+          // Clear heatmap source too
+          const heatmapSource = map.current?.getSource('permits-heatmap') as mapboxgl.GeoJSONSource;
+          if (heatmapSource) {
+            heatmapSource.setData({ type: 'FeatureCollection', features: [] });
+          }
           
-          // Adjust heatmap layer properties based on LOD level
-          // Larger radius for coarser aggregation, smaller for finer detail
-          // Radius config - zoom ranges match LOD thresholds
-          // borough < 10, neighborhood 10-12, tract 12-15, granular >= 15
-          const radiusConfig: Record<HeatmapLOD, mapboxgl.Expression> = {
-            borough: ['interpolate', ['linear'], ['zoom'], 8, 100, 10, 70],
-            neighborhood: ['interpolate', ['linear'], ['zoom'], 10, 55, 12, 40],
-            tract: ['interpolate', ['linear'], ['zoom'], 12, 35, 15, 20],
-            granular: ['interpolate', ['linear'], ['zoom'], 15, 15, 18, 25],
-          };
-          
-          // Intensity config - balanced visibility
-          const intensityConfig: Record<HeatmapLOD, mapboxgl.Expression> = {
-            borough: ['interpolate', ['linear'], ['zoom'], 8, 0.4, 10, 0.6],
-            neighborhood: ['interpolate', ['linear'], ['zoom'], 10, 0.6, 12, 0.8],
-            tract: ['interpolate', ['linear'], ['zoom'], 12, 0.8, 15, 1.2],
-            granular: ['interpolate', ['linear'], ['zoom'], 15, 1.2, 18, 2.5],
-          };
-
-          map.current?.setPaintProperty('permits-heat', 'heatmap-radius', radiusConfig[lodLevel] as unknown as number);
-          map.current?.setPaintProperty('permits-heat', 'heatmap-intensity', intensityConfig[lodLevel] as unknown as number);
+          setHeatmapVisible(false);
+          return; // Choropleth layer handles visualization
         }
       } catch (error) {
         if ((error as Error).name !== 'AbortError') {

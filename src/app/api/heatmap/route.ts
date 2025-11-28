@@ -15,74 +15,73 @@ export async function GET(request: NextRequest) {
   
   const boundsParam = searchParams.get('bounds');
   const timeHorizon = (searchParams.get('timeHorizon') || '1yr') as TimeHorizon;
+  const limitParam = searchParams.get('limit');
+  
+  // Allow caller to specify sample size - default higher for smooth coverage
+  const limit = limitParam ? parseInt(limitParam) : 8000;
 
   try {
-    // Parse bounds if provided: sw_lng,sw_lat,ne_lng,ne_lat
-    let bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number } | undefined;
-    
-    if (boundsParam) {
-      const [swLng, swLat, neLng, neLat] = boundsParam.split(',').map(parseFloat);
-      if (![swLng, swLat, neLng, neLat].some(isNaN)) {
-        // Add 20% buffer around viewport
-        const latBuffer = (neLat - swLat) * 0.2;
-        const lngBuffer = (neLng - swLng) * 0.2;
-        bounds = {
-          minLat: swLat - latBuffer,
-          maxLat: neLat + latBuffer,
-          minLng: swLng - lngBuffer,
-          maxLng: neLng + lngBuffer,
-        };
-      }
-    }
-
     const monthsBack = HORIZON_MONTHS[timeHorizon] || 12;
     const cutoff = new Date();
     cutoff.setMonth(cutoff.getMonth() - monthsBack);
     const cutoffDate = cutoff.toISOString().split('T')[0];
 
-    // Query permits from database - no casting for index usage
     let results;
-    if (bounds) {
+    
+    if (boundsParam) {
+      // Parse bounds: sw_lng,sw_lat,ne_lng,ne_lat
+      const [swLng, swLat, neLng, neLat] = boundsParam.split(',').map(parseFloat);
+      
+      if ([swLng, swLat, neLng, neLat].some(isNaN)) {
+        return NextResponse.json({ error: 'Invalid bounds' }, { status: 400 });
+      }
+      
+      // Add buffer for edge blending
+      const latBuffer = (neLat - swLat) * 0.15;
+      const lngBuffer = (neLng - swLng) * 0.15;
+      
+      // Query with random sampling for even distribution
       results = await db.execute(sql`
         SELECT latitude, longitude, estimated_cost
         FROM permits
-        WHERE latitude BETWEEN ${bounds.minLat.toString()} AND ${bounds.maxLat.toString()}
-          AND longitude BETWEEN ${bounds.minLng.toString()} AND ${bounds.maxLng.toString()}
-          AND filing_date >= ${cutoffDate}
-        ORDER BY filing_date DESC
-        LIMIT 2000
+        WHERE filing_date >= ${cutoffDate}
+          AND latitude BETWEEN ${swLat - latBuffer} AND ${neLat + latBuffer}
+          AND longitude BETWEEN ${swLng - lngBuffer} AND ${neLng + lngBuffer}
+        ORDER BY RANDOM()
+        LIMIT ${limit}
       `);
     } else {
+      // City-wide view: sample from all permits
       results = await db.execute(sql`
         SELECT latitude, longitude, estimated_cost
         FROM permits
         WHERE filing_date >= ${cutoffDate}
           AND latitude IS NOT NULL
-        ORDER BY filing_date DESC
-        LIMIT 2000
+        ORDER BY RANDOM()
+        LIMIT ${limit}
       `);
     }
 
-    // Transform to heatmap points - db.execute returns array directly
+    // Transform to heatmap points
     const points = (results as unknown as Array<{
-      latitude: string;
-      longitude: string;
-      estimated_cost: string | null;
+      latitude: number | null;
+      longitude: number | null;
+      estimated_cost: number | null;
     }>)
-      .filter(r => r.latitude && r.longitude)
+      .filter(r => r.latitude != null && r.longitude != null)
       .map(r => {
-        const cost = parseFloat(r.estimated_cost || '0') || 0;
+        const cost = r.estimated_cost || 0;
         
-        // Weight by capital investment
-        let weight = 2;
-        if (cost > 1000000) weight = 10;
-        else if (cost > 500000) weight = 8;
-        else if (cost > 100000) weight = 6;
-        else if (cost > 50000) weight = 4;
+        // Weight by capital investment (subtle boost for bigger projects)
+        let weight = 1;
+        if (cost > 5000000) weight = 2.5;
+        else if (cost > 1000000) weight = 2;
+        else if (cost > 500000) weight = 1.5;
+        else if (cost > 100000) weight = 1.2;
 
         return {
-          latitude: parseFloat(r.latitude),
-          longitude: parseFloat(r.longitude),
+          latitude: r.latitude!,
+          longitude: r.longitude!,
           weight,
         };
       });
@@ -90,7 +89,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       points,
       total: points.length,
-      source: 'database',
+      sampled: true,
     });
   } catch (error) {
     console.error('Heatmap query error:', error);

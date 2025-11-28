@@ -40,7 +40,7 @@ export async function GET(
     const tract = tractResult[0];
     const geometry = JSON.parse(tract.geometry);
     const landAreaSqKm = tract.landAreaSqm 
-      ? parseFloat(tract.landAreaSqm) / 1_000_000 
+      ? Number(tract.landAreaSqm) / 1_000_000 
       : 0.1;
 
     // Calculate scores dynamically for each time horizon
@@ -115,7 +115,7 @@ export async function GET(
         geoid: tract.geoid,
         name: tract.name,
         countyFips: tract.countyFips,
-        landAreaSqm: tract.landAreaSqm,
+        landAreaSqm: tract.landAreaSqm ? String(tract.landAreaSqm) : null,
         geometry,
         scores,
       },

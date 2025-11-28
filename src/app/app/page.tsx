@@ -5,14 +5,14 @@ import { SearchBar } from '@/components/Search/SearchBar';
 import { FilterPanel } from '@/components/Filters/FilterPanel';
 import { TimeToggle } from '@/components/Filters/TimeToggle';
 import { DetailDrawer } from '@/components/Drawer/DetailDrawer';
-import { ScoreCard } from '@/components/Score/ScoreCard';
-import { AdjacentTractsPanel } from '@/components/Score/AdjacentTractsPanel';
+import { PropertyPanel } from '@/components/Property/PropertyPanel';
 import { ModeToggle } from '@/components/ModeToggle';
 import { RankingsPanel } from '@/components/Scout/RankingsPanel';
+import { MapLegend } from '@/components/Map/MapLegend';
 import { useAppStore } from '@/lib/store';
 
 export default function Home() {
-  const { mode, subjectTract, drawerOpen, filterPanelOpen } = useAppStore();
+  const { mode, subjectAddress, drawerOpen, filterPanelOpen } = useAppStore();
 
   return (
     <main className="relative h-screen w-screen overflow-hidden bg-[var(--bg-primary)]">
@@ -78,14 +78,9 @@ export default function Home() {
             </div>
           )}
           
-          {/* Score Card - Shows when tract is selected */}
-          {subjectTract && (
-            <div className="absolute top-20 sm:top-24 right-3 sm:right-4 lg:right-6 z-10 animate-slide-in-up space-y-2 sm:space-y-3 max-w-[calc(100vw-24px)] sm:max-w-none">
-              <ScoreCard />
-              <div className="hidden sm:block">
-                <AdjacentTractsPanel />
-              </div>
-            </div>
+          {/* Property Panel - Shows when address is looked up */}
+          {subjectAddress && (
+            <PropertyPanel />
           )}
         </>
       )}
@@ -93,8 +88,8 @@ export default function Home() {
       {/* SCOUT MODE UI */}
       {mode === 'scout' && (
         <>
-          {/* Rankings Panel - Right Side */}
-          <div className="hidden sm:block absolute top-24 right-4 lg:right-6 z-10 animate-slide-in-up">
+          {/* Rankings Panel - Left Side (Manhattan slopes right-to-left) */}
+          <div className="hidden sm:block absolute top-24 left-4 lg:left-6 z-10 animate-slide-in-up">
             <RankingsPanel />
           </div>
           
@@ -109,8 +104,9 @@ export default function Home() {
         </>
       )}
       
-      {/* Time Toggle - Bottom Center (both modes) */}
-      <div className="absolute bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-10">
+      {/* Bottom Controls - Legend + Time Toggle */}
+      <div className="absolute bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2">
+        {mode === 'scout' && <MapLegend />}
         <TimeToggle />
       </div>
       
