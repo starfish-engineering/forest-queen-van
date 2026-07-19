@@ -45,6 +45,12 @@ export default function Home() {
             >
               This Van is For Sale
             </Link>
+            <Link
+              href="/explore"
+              className="border border-emerald-200/60 text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-white/10 transition-all hover:scale-105"
+            >
+              See it in 3D →
+            </Link>
           </div>
         </div>
 
