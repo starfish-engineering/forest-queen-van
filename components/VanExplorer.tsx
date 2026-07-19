@@ -1,13 +1,10 @@
 'use client';
 
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Splat, Html, useProgress } from '@react-three/drei';
+import { OrbitControls, Html, useProgress, Environment, ContactShadows } from '@react-three/drei';
 import { Component, Suspense, useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-
-// drei's canonical sample splat — stands in until a real Forest Queen scan is set
-// via NEXT_PUBLIC_SPLAT_URL (a Scaniverse/Luma .splat export hosted on R2).
-const SAMPLE_SPLAT = 'https://huggingface.co/cakewalk/splat-data/resolve/main/nike.splat';
+import TransitModel from '@/components/van/TransitModel';
 
 export type HotspotSystem = {
   slug: string;
@@ -15,18 +12,20 @@ export type HotspotSystem = {
   icon: string;
   totalCost: number;
   headline: string;
-  pos: [number, number, number]; // placeholder coords — retune against the real splat
+  pos: [number, number, number];
+  roof?: boolean;
 };
 
-// If the splat URL fails to load, keep the scene alive with a wireframe proxy
-// rather than crashing the whole canvas.
-class SplatBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { failed: boolean }> {
+// Keeps the canvas alive if a child (e.g. the Environment HDRI fetch) throws —
+// most likely an offline/blocked request. Fallback is intentionally empty;
+// the scene still renders without the environment lighting.
+class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() {
     return { failed: true };
   }
   render() {
-    return this.state.failed ? this.props.fallback : this.props.children;
+    return this.state.failed ? null : this.props.children;
   }
 }
 
@@ -43,16 +42,9 @@ function Loader() {
   );
 }
 
-export default function VanExplorer({
-  systems,
-  splatUrl,
-}: {
-  systems: HotspotSystem[];
-  splatUrl: string;
-}) {
-  const usingSample = !splatUrl;
-  const url = splatUrl || SAMPLE_SPLAT;
+export default function VanExplorer({ systems }: { systems: HotspotSystem[] }) {
   const [active, setActive] = useState<HotspotSystem | null>(null);
+  const [open, setOpen] = useState(false);
   const [reduced, setReduced] = useState(false);
 
   useEffect(() => {
@@ -63,55 +55,56 @@ export default function VanExplorer({
     return () => mq.removeEventListener('change', on);
   }, []);
 
+  const select = (s: HotspotSystem) => {
+    const next = active?.slug === s.slug ? null : s;
+    setActive(next);
+    if (next && !next.roof && !open) setOpen(true);
+  };
+
   return (
     <div className="fqx-root">
-      <Canvas camera={{ position: [4, 2, 6], fov: 45 }} dpr={[1, 1.5]}>
+      <Canvas shadows camera={{ position: [7.5, 3.2, 7.5], fov: 40 }} dpr={[1, 1.5]}>
         <color attach="background" args={['#0e1511']} />
+        <ambientLight intensity={0.55} />
+        <directionalLight position={[6, 8, 4]} intensity={1.2} castShadow />
+        <ErrorBoundary>
+          <Suspense fallback={null}>
+            <Environment preset="city" />
+          </Suspense>
+        </ErrorBoundary>
+        <ContactShadows position={[0, 0.01, 0]} opacity={0.45} scale={18} blur={2.4} far={4} />
         <Suspense fallback={<Loader />}>
-          <group>
-            <SplatBoundary
-              fallback={
-                <mesh>
-                  <boxGeometry args={[2, 1, 4]} />
-                  <meshBasicMaterial color="#33604a" wireframe />
-                </mesh>
-              }
-            >
-              <Splat src={url} />
-            </SplatBoundary>
-            {systems.map((s) => (
-              <Html
-                key={s.slug}
-                position={s.pos}
-                center
-                distanceFactor={10}
-                occlude
-                zIndexRange={[10, 0]}
-              >
-                <button
-                  className={`fqx-hs${active?.slug === s.slug ? ' on' : ''}`}
-                  onClick={() => setActive(active?.slug === s.slug ? null : s)}
-                  aria-label={s.name}
-                >
-                  <span aria-hidden>{s.icon}</span>
-                </button>
-              </Html>
-            ))}
-          </group>
+          <TransitModel open={open} />
         </Suspense>
+        {systems
+          .filter((s) => open || s.roof)
+          .map((s) => (
+            <Html key={s.slug} position={s.pos} center distanceFactor={9} zIndexRange={[10, 0]}>
+              <button
+                className={`fqx-hs${active?.slug === s.slug ? ' on' : ''}`}
+                onClick={() => select(s)}
+                aria-label={s.name}
+              >
+                <span aria-hidden>{s.icon}</span>
+              </button>
+            </Html>
+          ))}
         <OrbitControls
+          makeDefault
           enableDamping
+          target={[0, 1.4, 0]}
           autoRotate={!active && !reduced}
           autoRotateSpeed={0.4}
-          minDistance={2}
-          maxDistance={14}
+          minDistance={4}
+          maxDistance={16}
+          maxPolarAngle={Math.PI / 2 - 0.03}
         />
       </Canvas>
 
       {/* ---- overlay chrome ---- */}
       <header className="fqx-top">
         <div>
-          <p className="fqx-eyebrow">2019 Ford Transit 250 · explore the build</p>
+          <p className="fqx-eyebrow">2019 Ford Transit 250 · high roof · extended</p>
           <h1 className="fqx-title">Forest Queen</h1>
         </div>
         <div className="fqx-price">
@@ -120,21 +113,19 @@ export default function VanExplorer({
         </div>
       </header>
 
-      {usingSample && (
-        <div className="fqx-banner" role="status">
-          <b>Placeholder scan.</b> A sample model stands in for the van to prove the interaction —
-          the hotspots below are wired to the real build. Drop the Scaniverse export at{' '}
-          <code>NEXT_PUBLIC_SPLAT_URL</code> to swap in the Forest Queen.
-        </div>
-      )}
-
       {/* system chip rail — usable regardless of 3D hotspot coordinates */}
       <nav className="fqx-rail" aria-label="Systems">
+        <button
+          className={`fqx-chip fqx-open${open ? ' on' : ''}`}
+          onClick={() => setOpen((v) => !v)}
+        >
+          {open ? 'Close it up' : 'See inside'}
+        </button>
         {systems.map((s) => (
           <button
             key={s.slug}
             className={`fqx-chip${active?.slug === s.slug ? ' on' : ''}`}
-            onClick={() => setActive(active?.slug === s.slug ? null : s)}
+            onClick={() => select(s)}
           >
             <span aria-hidden>{s.icon}</span>
             {s.name.replace(/ System| Power/, '')}
@@ -142,7 +133,7 @@ export default function VanExplorer({
         ))}
       </nav>
 
-      <p className="fqx-hint">Drag to orbit · tap a system to open it</p>
+      <p className="fqx-hint">Drag to orbit · open the build to look inside</p>
 
       {active && (
         <aside className="fqx-panel">
@@ -187,10 +178,6 @@ const CSS = `
   padding:9px 14px;backdrop-filter:blur(8px)}
 .fqx-price b{display:block;font-family:ui-monospace,Menlo,monospace;font-size:17px}
 .fqx-price span{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:#cf9646}
-.fqx-banner{position:absolute;top:clamp(70px,14vh,110px);left:50%;transform:translateX(-50%);
-  max-width:min(560px,90vw);background:rgba(21,29,23,.9);border:1px solid #cf964655;border-radius:12px;
-  padding:11px 15px;font-size:13px;color:#c9d4c9;line-height:1.45;backdrop-filter:blur(8px)}
-.fqx-banner code{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#cf9646}
 .fqx-rail{position:absolute;left:50%;bottom:48px;transform:translateX(-50%);display:flex;gap:8px;
   flex-wrap:wrap;justify-content:center;max-width:94vw;padding:8px;border-radius:14px;
   background:rgba(21,29,23,.7);border:1px solid #2a352c;backdrop-filter:blur(10px)}
@@ -198,6 +185,7 @@ const CSS = `
   background:#1b241d;border:1px solid #2a352c;border-radius:10px;padding:8px 11px;cursor:pointer;transition:.15s}
 .fqx-chip:hover{border-color:#cf9646}
 .fqx-chip.on{background:#cf9646;color:#1a1206;border-color:#cf9646}
+.fqx-open{border-color:#cf964688}
 .fqx-hint{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);margin:0;
   font-size:11px;color:#9db0a1}
 .fqx-panel{position:absolute;top:0;right:0;height:100%;width:min(340px,86vw);
