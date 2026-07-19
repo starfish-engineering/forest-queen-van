@@ -29,7 +29,7 @@ async function testConnection() {
 
     // Check if we have a valid client
     console.log('\n📦 Supabase Client Info:');
-    console.log('   Auth URL:', supabase.auth.url);
+    console.log('   Auth URL:', (supabase.auth as any).url);
     console.log('   Rest URL:', (supabase as any).rest?.url || supabaseUrl + '/rest/v1');
 
     console.log('\n🎉 All systems go! Supabase is ready to use.');
