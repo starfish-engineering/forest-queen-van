@@ -1,0 +1,296 @@
+{
+  "total": 30500,
+  "categories": [
+    {
+      "name": "Structural",
+      "total": 5500,
+      "color": "#064e3b",
+      "items": [
+        {
+          "item": "T-slotted aluminum framing, carriage bolts, angle brackets",
+          "cost": 5500,
+          "category": "Structural",
+          "notes": "80/20 aluminum extrusion system - the foundation of the entire build"
+        }
+      ]
+    },
+    {
+      "name": "Electrical",
+      "total": 7200,
+      "color": "#0891b2",
+      "items": [
+        {
+          "item": "Lithium Ion Batteries x 4",
+          "cost": 4000,
+          "category": "Electrical",
+          "notes": "Battle Born 100Ah LiFePO4 batteries"
+        },
+        {
+          "item": "Victron Multiplus 3000 Inverter",
+          "cost": 1300,
+          "category": "Electrical",
+          "notes": "3000W inverter/charger with automatic transfer switch"
+        },
+        {
+          "item": "Solar Panels",
+          "cost": 1000,
+          "category": "Electrical",
+          "notes": "400W total solar array"
+        },
+        {
+          "item": "Victron MPT Solar Controller",
+          "cost": 700,
+          "category": "Electrical",
+          "notes": "MPPT charge controller for optimal solar efficiency"
+        },
+        {
+          "item": "Heated Floor",
+          "cost": 200,
+          "category": "Electrical",
+          "notes": "Electric floor heating pad for cold weather"
+        }
+      ]
+    },
+    {
+      "name": "HVAC",
+      "total": 4500,
+      "color": "#dc2626",
+      "items": [
+        {
+          "item": "CRLawrence T vent windows",
+          "cost": 1400,
+          "category": "HVAC",
+          "notes": "Multiple windows for ventilation and natural light"
+        },
+        {
+          "item": "Webasto Propane Heater and Control",
+          "cost": 1300,
+          "category": "HVAC",
+          "notes": "Primary heating system with thermostat"
+        },
+        {
+          "item": "Dometic Fridge 95",
+          "cost": 1300,
+          "category": "HVAC",
+          "notes": "95L 12V compressor fridge"
+        },
+        {
+          "item": "Maxxair Fan",
+          "cost": 500,
+          "category": "HVAC",
+          "notes": "Roof-mounted ventilation fan with rain sensor"
+        }
+      ]
+    },
+    {
+      "name": "Plumbing",
+      "total": 1800,
+      "color": "#2563eb",
+      "items": [
+        {
+          "item": "Water Tank - 27 gallon",
+          "cost": 500,
+          "category": "Plumbing",
+          "notes": "Food-grade fresh water storage"
+        },
+        {
+          "item": "Plumbing hardware (pump, accumulator, pipes, valves)",
+          "cost": 500,
+          "category": "Plumbing",
+          "notes": "Complete water distribution system"
+        },
+        {
+          "item": "Water Heater - Bosch 8 gallon + Bosch 1 Gallon",
+          "cost": 400,
+          "category": "Plumbing",
+          "notes": "Dual hot water heaters"
+        },
+        {
+          "item": "Ruvati Stainless Steel Sink",
+          "cost": 400,
+          "category": "Plumbing",
+          "notes": "Kitchen sink with undermount style"
+        }
+      ]
+    },
+    {
+      "name": "Propane",
+      "total": 1200,
+      "color": "#f59e0b",
+      "items": [
+        {
+          "item": "Dometic Propane Range/Oven",
+          "cost": 1000,
+          "category": "Propane",
+          "notes": "3-burner cooktop with oven"
+        },
+        {
+          "item": "Horizontal Propane Tank",
+          "cost": 100,
+          "category": "Propane",
+          "notes": "Mounted propane storage"
+        },
+        {
+          "item": "Propane Hardware",
+          "cost": 100,
+          "category": "Propane",
+          "notes": "Regulators, lines, valves, safety equipment"
+        }
+      ]
+    },
+    {
+      "name": "Decor & Interior",
+      "total": 6700,
+      "color": "#7c3aed",
+      "items": [
+        {
+          "item": "Wood Paneling",
+          "cost": 3000,
+          "category": "Decor",
+          "notes": "Birch plywood for walls and ceiling"
+        },
+        {
+          "item": "Wooden Slats and Integrated Lights",
+          "cost": 2000,
+          "category": "Decor",
+          "notes": "Signature poplar slat ceiling with 10 puck lights"
+        },
+        {
+          "item": "Swivel Seats",
+          "cost": 1000,
+          "category": "Decor",
+          "notes": "Front seat swivels for interior living space"
+        },
+        {
+          "item": "Fabric Upholstery",
+          "cost": 300,
+          "category": "Decor",
+          "notes": "Tweed fabric beneath slats"
+        },
+        {
+          "item": "Tile Peel and Stick Backsplash",
+          "cost": 200,
+          "category": "Decor",
+          "notes": "Kitchen backsplash"
+        },
+        {
+          "item": "Floor Vinyl",
+          "cost": 200,
+          "category": "Decor",
+          "notes": "Vinyl plank flooring for walkway"
+        }
+      ]
+    },
+    {
+      "name": "Storage",
+      "total": 800,
+      "color": "#65a30d",
+      "items": [
+        {
+          "item": "Upper Cabinets (Titan DIY)",
+          "cost": 800,
+          "category": "Storage",
+          "notes": "Overhead cabinet storage system"
+        }
+      ]
+    },
+    {
+      "name": "Sewage",
+      "total": 1300,
+      "color": "#64748b",
+      "items": [
+        {
+          "item": "Nature's Head Composting Toilet",
+          "cost": 1300,
+          "category": "Sewage",
+          "notes": "Composting toilet system"
+        }
+      ]
+    },
+    {
+      "name": "IT & Connectivity",
+      "total": 1500,
+      "color": "#ec4899",
+      "items": [
+        {
+          "item": "Starlink Satellite and Modem",
+          "cost": 600,
+          "category": "IT",
+          "notes": "Satellite internet for remote work"
+        },
+        {
+          "item": "Netgear 5G Modem and Antenna",
+          "cost": 600,
+          "category": "IT",
+          "notes": "Cellular 5G connectivity"
+        },
+        {
+          "item": "Weboost Signal Booster",
+          "cost": 300,
+          "category": "IT",
+          "notes": "Cell signal amplifier"
+        }
+      ]
+    }
+  ],
+  "timeline": [
+    {
+      "date": "2020-06",
+      "items": ["Windows"],
+      "amount": 1400
+    },
+    {
+      "date": "2020-09",
+      "items": ["80/20 Framing"],
+      "amount": 5500
+    },
+    {
+      "date": "2021-05",
+      "items": ["Wood Paneling"],
+      "amount": 3000
+    },
+    {
+      "date": "2021-07",
+      "items": ["Plumbing System", "Air Conditioning"],
+      "amount": 1800
+    },
+    {
+      "date": "2021-08",
+      "items": ["Solar Panels", "Roof Components"],
+      "amount": 1700
+    },
+    {
+      "date": "2021-09",
+      "items": ["Propane System", "Slats & Lights"],
+      "amount": 3200
+    },
+    {
+      "date": "2022-03",
+      "items": ["Upper Cabinets"],
+      "amount": 800
+    },
+    {
+      "date": "2022-07",
+      "items": ["Batteries", "Inverter", "Floor System"],
+      "amount": 6800
+    },
+    {
+      "date": "2024-04",
+      "items": ["Butcher Block Extension", "Final Touches"],
+      "amount": 500
+    }
+  ],
+  "notes": {
+    "excludedCosts": [
+      "Van purchase price",
+      "Tools and equipment",
+      "Consumables (screws, glue, tape, etc.)",
+      "Labor (self-performed, ~400 hours)"
+    ],
+    "comparison": {
+      "DIY Cost": 30500,
+      "Professional Build": "60,000 - 120,000",
+      "Labor Value": "~$20,000 (400 hours @ $50/hr)"
+    }
+  }
+}
