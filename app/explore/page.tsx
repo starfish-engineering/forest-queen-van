@@ -12,12 +12,12 @@ export const metadata: Metadata = {
 // components/van/TransitModel.tsx. hvac and solar sit on the roof, so they
 // stay visible even with the body shell closed.
 const HOTSPOT_POS: Record<string, [number, number, number]> = {
-  electrical: [-2.15, 1.05, -0.75],
-  plumbing: [1.0, 1.65, -0.7],
-  hvac: [1.2, 3.05, 0], // roof
-  solar: [-1.2, 3.05, 0], // roof
+  electrical: [-2.15, 1.05, -0.75], // battery bank in the garage, driver side
+  plumbing: [-1.05, 1.7, 0.75], // galley sink, passenger side
+  hvac: [-1.25, 3.05, 0], // MaxxAir fan above the galley
+  solar: [-0.1, 3.05, 0], // front panel
   propane: [-2.9, 1.0, 0.65],
-  structural: [0.9, 1.9, 0.95],
+  structural: [0.15, 1.9, -0.95], // 80/20 upright at the bench
 };
 
 const ROOF_SYSTEMS = new Set(['hvac', 'solar']);

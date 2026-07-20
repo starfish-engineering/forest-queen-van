@@ -9,9 +9,16 @@ import { useFrame } from '@react-three/fiber';
  * Real dimensions, in meters: length 6.70, width ~2.06, height 2.79,
  * wheelbase 3.75, front axle x=2.39, rear axle x=-1.36 (long EL rear overhang).
  * +X = front, +Y = up, +Z = passenger side. Origin: ground, mid-body.
+ * Exterior proportions matched against a CC Wikimedia reference of the same
+ * body (T-350HD high-roof EL): short steep hood, raked grille face, big
+ * windshield, roof dome rising from the header, amber clearance markers.
  *
- * `open` fades the body shell to an x-ray so the documented build inside —
- * bed/garage, galley, battery bank, water, propane, framing — is the subject.
+ * Interior mirrors the documented build (per the photo archive):
+ * galley on the PASSENGER side aft of the slider (window above, MaxxAir fan
+ * overhead), toilet/cooler-fridge bench on the DRIVER side under its window,
+ * bed/garage rear with the battery bank + Victron, propane in the rear corner.
+ *
+ * `open` fades the body shell to an x-ray so the build inside is the subject.
  */
 
 const PAINT = '#eef1ed'; // Oxford-white
@@ -30,17 +37,16 @@ function useBodyProfile() {
     s.absarc(-1.36, 0.37, 0.5, 2.618, 0.524, true); // rear arch
     s.lineTo(1.957, 0.62);
     s.absarc(2.39, 0.37, 0.5, 2.618, 0.524, true); // front arch
-    s.lineTo(2.7, 0.62);
-    s.lineTo(3.28, 0.68); // bumper lower lip
-    s.quadraticCurveTo(3.38, 0.8, 3.38, 0.98); // bumper face
-    s.lineTo(3.32, 1.28); // grille top
-    s.quadraticCurveTo(3.2, 1.4, 2.98, 1.44); // hood
-    s.lineTo(2.6, 1.5); // cowl
-    s.lineTo(2.0, 2.32); // windshield rake
-    s.quadraticCurveTo(1.82, 2.56, 1.55, 2.66); // roof lead-in
-    s.quadraticCurveTo(1.15, 2.8, 0.75, 2.8);
-    s.lineTo(-3.22, 2.8); // high roof
-    s.quadraticCurveTo(-3.36, 2.8, -3.36, 2.66);
+    s.lineTo(2.75, 0.62);
+    s.lineTo(3.3, 0.7); // bumper lower lip
+    s.quadraticCurveTo(3.42, 0.82, 3.42, 1.0); // bumper face
+    s.lineTo(3.36, 1.22); // bumper top
+    s.lineTo(3.24, 1.54); // grille face, raked back
+    s.quadraticCurveTo(3.05, 1.6, 2.62, 1.68); // short steep hood to cowl
+    s.lineTo(2.08, 2.28); // big windshield rake
+    s.quadraticCurveTo(1.55, 2.68, 0.7, 2.8); // roof dome over the cab
+    s.lineTo(-3.18, 2.8); // high roof
+    s.quadraticCurveTo(-3.36, 2.8, -3.36, 2.62);
     s.closePath(); // vertical rear face
     return s;
   }, []);
@@ -178,43 +184,70 @@ function Interior() {
         <meshStandardMaterial color="#1852a4" roughness={0.4} />
       </mesh>
 
-      {/* galley, driver side: cabinet, butcher-block, sink, faucet */}
-      <mesh position={[0.65, 1.1, -0.68]} castShadow>
-        <boxGeometry args={[1.7, 0.82, 0.55]} />
+      {/* galley — PASSENGER side, aft of the slider doorway (open the slider,
+          the kitchen is right there; its window sits above the counter) */}
+      <mesh position={[-0.8, 1.1, 0.68]} castShadow>
+        <boxGeometry args={[1.2, 0.82, 0.55]} />
         <meshStandardMaterial color={BIRCH} roughness={0.65} />
       </mesh>
-      <mesh position={[0.65, 1.55, -0.66]}>
-        <boxGeometry args={[1.74, 0.06, 0.6]} />
+      <mesh position={[-0.8, 1.55, 0.66]}>
+        <boxGeometry args={[1.26, 0.06, 0.6]} />
         <meshStandardMaterial color="#a97b46" roughness={0.5} />
       </mesh>
-      <mesh position={[1.0, 1.585, -0.66]}>
-        <boxGeometry args={[0.42, 0.03, 0.34]} />
+      {/* stove at the doorway end of the counter */}
+      <mesh position={[-0.38, 1.585, 0.66]}>
+        <boxGeometry args={[0.42, 0.035, 0.36]} />
+        <meshStandardMaterial color="#8b9298" metalness={0.8} roughness={0.3} />
+      </mesh>
+      {[-0.48, -0.28].map((x) => (
+        <mesh key={x} position={[x, 1.605, 0.66]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.06, 0.06, 0.01, 16]} />
+          <meshStandardMaterial color="#26292b" roughness={0.6} />
+        </mesh>
+      ))}
+      {/* sink + faucet */}
+      <mesh position={[-1.05, 1.585, 0.66]}>
+        <boxGeometry args={[0.36, 0.03, 0.3]} />
         <meshStandardMaterial color="#6f7d85" metalness={0.85} roughness={0.25} />
       </mesh>
-      <group position={[1.0, 1.58, -0.86]}>
+      <group position={[-1.05, 1.58, 0.86]}>
         <mesh position={[0, 0.13, 0]}>
           <cylinderGeometry args={[0.018, 0.018, 0.26, 10]} />
           <meshStandardMaterial color={STEEL} metalness={0.9} roughness={0.2} />
         </mesh>
-        <mesh position={[0, 0.26, 0.08]} rotation={[Math.PI / 2, 0, 0]}>
+        <mesh position={[0, 0.26, -0.08]} rotation={[Math.PI / 2, 0, 0]}>
           <cylinderGeometry args={[0.015, 0.015, 0.18, 10]} />
           <meshStandardMaterial color={STEEL} metalness={0.9} roughness={0.2} />
         </mesh>
       </group>
-
-      {/* fridge + fresh-water tank under/next to galley */}
-      <mesh position={[-0.4, 1.02, -0.68]} castShadow>
-        <boxGeometry args={[0.55, 0.72, 0.55]} />
-        <meshStandardMaterial color="#3a3f3d" roughness={0.5} metalness={0.3} />
-      </mesh>
-      <mesh position={[1.42, 0.9, -0.62]}>
+      {/* fresh-water tank under the galley */}
+      <mesh position={[-1.15, 0.9, 0.6]}>
         <boxGeometry args={[0.42, 0.38, 0.3]} />
         <meshStandardMaterial color="#eef0ee" roughness={0.6} />
       </mesh>
 
-      {/* upper cabinets, driver side */}
-      <mesh position={[0.55, 2.32, -0.78]}>
-        <boxGeometry args={[1.9, 0.42, 0.34]} />
+      {/* toilet/cooler-fridge bench — DRIVER side, under its window */}
+      <mesh position={[0.7, 0.91, -0.7]} castShadow>
+        <boxGeometry args={[1.2, 0.42, 0.5]} />
+        <meshStandardMaterial color={BIRCH} roughness={0.65} />
+      </mesh>
+      <mesh position={[0.7, 1.16, -0.7]}>
+        <boxGeometry args={[1.16, 0.08, 0.46]} />
+        <meshStandardMaterial color="#3a4038" roughness={0.9} />
+      </mesh>
+      {/* cooler-fridge face in the bench front */}
+      <mesh position={[0.45, 0.9, -0.44]}>
+        <boxGeometry args={[0.5, 0.34, 0.03]} />
+        <meshStandardMaterial color="#4a5054" metalness={0.5} roughness={0.4} />
+      </mesh>
+
+      {/* upper cabinets: long run above the driver bench, short one by the bed */}
+      <mesh position={[0.7, 2.32, -0.78]}>
+        <boxGeometry args={[1.6, 0.42, 0.34]} />
+        <meshStandardMaterial color={BIRCH} roughness={0.65} />
+      </mesh>
+      <mesh position={[-1.6, 2.32, 0.78]}>
+        <boxGeometry args={[0.7, 0.42, 0.34]} />
         <meshStandardMaterial color={BIRCH} roughness={0.65} />
       </mesh>
 
@@ -232,12 +265,12 @@ function Interior() {
         </mesh>
       ))}
 
-      {/* 80/20 aluminum uprights */}
+      {/* 80/20 aluminum uprights at the galley + bench ends */}
       {[
-        [0.9, -0.9],
-        [-0.9, -0.9],
-        [0.4, 0.9],
-        [-1.3, 0.9],
+        [-0.25, 0.9],
+        [-1.35, 0.9],
+        [0.15, -0.9],
+        [1.25, -0.9],
       ].map(([x, z]) => (
         <mesh key={`${x}${z}`} position={[x, 1.65, z]}>
           <boxGeometry args={[0.045, 1.9, 0.045]} />
@@ -296,58 +329,91 @@ export default function TransitModel({ open }: { open: boolean }) {
 
       {/* glass + exterior fittings that fade with the shell */}
       <group ref={glassGroup}>
-        {/* windshield laid flat on the rake face (cowl 2.6,1.5 → roof lead 2.0,2.32,
-            pushed 0.07 out along the face normal to clear the bevel-expanded skin) */}
-        <Glass size={[0.98, 0.035, 1.5]} position={[2.36, 1.95, 0]} rotation={[0, 0, -0.94]} />
-        {/* cab door windows — kept behind the A-pillar rake */}
-        <Glass size={[0.6, 0.55, 0.02]} position={[1.78, 1.9, 1.03]} />
-        <Glass size={[0.6, 0.55, 0.02]} position={[1.78, 1.9, -1.03]} />
-        {/* sliding-door window (passenger) + galley T-vent (driver) */}
-        <Glass size={[1.0, 0.55, 0.02]} position={[0.45, 1.92, 1.03]} />
-        <Glass size={[0.85, 0.5, 0.02]} position={[0.5, 1.9, -1.03]} />
+        {/* windshield laid flat on the rake face (cowl 2.62,1.68 → header 2.08,2.28,
+            pushed out along the face normal to clear the bevel-expanded skin) */}
+        <Glass size={[0.8, 0.035, 1.7]} position={[2.38, 2.01, 0]} rotation={[0, 0, -0.84]} />
+        {/* cab door windows — deep Transit glass, kept behind the A-pillar rake */}
+        <Glass size={[0.66, 0.56, 0.02]} position={[1.7, 1.9, 1.03]} />
+        <Glass size={[0.66, 0.56, 0.02]} position={[1.7, 1.9, -1.03]} />
+        {/* sliding-door window + galley window aft of it (passenger) */}
+        <Glass size={[1.0, 0.6, 0.02]} position={[0.45, 1.9, 1.03]} />
+        <Glass size={[1.1, 0.5, 0.02]} position={[-0.8, 1.88, 1.03]} />
+        {/* driver-side window above the bench */}
+        <Glass size={[0.9, 0.5, 0.02]} position={[0.6, 1.88, -1.03]} />
         {/* rear door windows */}
-        <Glass size={[0.02, 0.6, 0.72]} position={[-3.38, 2.1, 0.45]} />
-        <Glass size={[0.02, 0.6, 0.72]} position={[-3.38, 2.1, -0.45]} />
+        <Glass size={[0.02, 0.6, 0.72]} position={[-3.44, 2.1, 0.45]} />
+        <Glass size={[0.02, 0.6, 0.72]} position={[-3.44, 2.1, -0.45]} />
 
-        {/* grille + headlights flanking it + bumper */}
-        <mesh position={[3.37, 1.13, 0]}>
-          <boxGeometry args={[0.06, 0.3, 1.1]} />
-          <meshStandardMaterial color={DARK} roughness={0.6} />
+        {/* grille assembly on the raked nose face: mesh, three bars, Ford oval */}
+        <group position={[3.33, 1.38, 0]} rotation={[0, 0, 0.36]}>
+          <mesh>
+            <boxGeometry args={[0.05, 0.3, 1.24]} />
+            <meshStandardMaterial color={DARK} roughness={0.6} />
+          </mesh>
+          {[0.09, 0, -0.09].map((dy) => (
+            <mesh key={dy} position={[0.03, dy, 0]}>
+              <boxGeometry args={[0.02, 0.035, 1.2]} />
+              <meshStandardMaterial color={STEEL} metalness={0.9} roughness={0.2} />
+            </mesh>
+          ))}
+          <mesh position={[0.045, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.085, 0.085, 0.02, 24]} />
+            <meshStandardMaterial color="#1d4f9e" metalness={0.6} roughness={0.3} />
+          </mesh>
+          {/* headlights on the same raked plane, flanking the grille top */}
+          {[0.79, -0.79].map((lz) => (
+            <mesh key={lz} position={[0.02, 0.07, lz]}>
+              <boxGeometry args={[0.05, 0.15, 0.32]} />
+              <meshStandardMaterial color="#e9edf0" emissive="#c8d4dc" emissiveIntensity={0.35} roughness={0.15} />
+            </mesh>
+          ))}
+        </group>
+
+        {/* black front bumper mass + air dam + fog lights */}
+        <mesh position={[3.44, 0.88, 0]}>
+          <boxGeometry args={[0.16, 0.52, 2.04]} />
+          <meshStandardMaterial color="#26292b" roughness={0.85} />
         </mesh>
-        {[0.09, 0, -0.09].map((dy) => (
-          <mesh key={dy} position={[3.41, 1.13 + dy, 0]}>
-            <boxGeometry args={[0.02, 0.035, 1.06]} />
-            <meshStandardMaterial color={STEEL} metalness={0.9} roughness={0.2} />
+        <mesh position={[3.32, 0.5, 0]}>
+          <boxGeometry args={[0.12, 0.18, 1.3]} />
+          <meshStandardMaterial color="#1f2224" roughness={0.9} />
+        </mesh>
+        {[0.78, -0.78].map((z) => (
+          <mesh key={z} position={[3.47, 0.74, z]}>
+            <boxGeometry args={[0.06, 0.08, 0.18]} />
+            <meshStandardMaterial color="#d7dde0" emissive="#aebfc8" emissiveIntensity={0.2} roughness={0.2} />
           </mesh>
         ))}
-        {[0.72, -0.72].map((z) => (
-          <mesh key={z} position={[3.38, 1.13, z]}>
-            <boxGeometry args={[0.05, 0.26, 0.34]} />
-            <meshStandardMaterial color="#e9edf0" emissive="#c8d4dc" emissiveIntensity={0.35} roughness={0.15} />
+
+        {/* amber clearance markers on the high-roof front */}
+        {[-0.3, 0, 0.3].map((z) => (
+          <mesh key={z} position={[1.1, 2.79, z]}>
+            <boxGeometry args={[0.09, 0.035, 0.06]} />
+            <meshStandardMaterial color="#e8930c" emissive="#c9720a" emissiveIntensity={0.6} roughness={0.3} />
           </mesh>
         ))}
-        <mesh position={[3.4, 0.74, 0]}>
-          <boxGeometry args={[0.12, 0.28, 2.02]} />
-          <meshStandardMaterial color="#2a2d2c" roughness={0.8} />
-        </mesh>
 
-        {/* taillights */}
+        {/* taillights + black rear step bumper */}
         {[0.88, -0.88].map((z) => (
-          <mesh key={z} position={[-3.38, 1.2, z]}>
+          <mesh key={z} position={[-3.44, 1.2, z]}>
             <boxGeometry args={[0.02, 0.55, 0.14]} />
             <meshStandardMaterial color="#8c1f1f" emissive="#5a1010" emissiveIntensity={0.4} roughness={0.3} />
           </mesh>
         ))}
+        <mesh position={[-3.44, 0.52, 0]}>
+          <boxGeometry args={[0.16, 0.14, 2.06]} />
+          <meshStandardMaterial color="#26292b" roughness={0.85} />
+        </mesh>
 
         {/* mirrors */}
         {[1.0, -1.0].map((side) => (
           <group key={side}>
-            <mesh position={[2.55, 1.92, side * 1.1]}>
-              <boxGeometry args={[0.05, 0.05, 0.24]} />
+            <mesh position={[2.45, 1.98, side * 1.1]}>
+              <boxGeometry args={[0.05, 0.05, 0.26]} />
               <meshStandardMaterial color={DARK} roughness={0.7} />
             </mesh>
-            <mesh position={[2.55, 1.86, side * 1.24]}>
-              <boxGeometry args={[0.1, 0.28, 0.16]} />
+            <mesh position={[2.45, 1.9, side * 1.25]}>
+              <boxGeometry args={[0.11, 0.3, 0.17]} />
               <meshStandardMaterial color={DARK} roughness={0.7} />
             </mesh>
           </group>
@@ -374,16 +440,16 @@ export default function TransitModel({ open }: { open: boolean }) {
       <Wheel x={-1.36} z={0.82} />
       <Wheel x={-1.36} z={-0.82} />
 
-      {/* roof kit: rails, 400W solar, MaxxAir fan */}
+      {/* roof kit: rails, 400W solar, MaxxAir fan above the galley */}
       {[0.62, -0.62].map((z) => (
-        <mesh key={z} position={[-0.9, 2.84, z]}>
-          <boxGeometry args={[4.4, 0.05, 0.06]} />
+        <mesh key={z} position={[-1.25, 2.84, z]}>
+          <boxGeometry args={[3.8, 0.05, 0.06]} />
           <meshStandardMaterial color="#2f3331" roughness={0.6} />
         </mesh>
       ))}
-      <SolarPanel x={-0.35} />
-      <SolarPanel x={-2.05} />
-      <group position={[1.0, 2.86, 0]}>
+      <SolarPanel x={-0.1} />
+      <SolarPanel x={-2.4} />
+      <group position={[-1.25, 2.86, 0]}>
         <mesh>
           <boxGeometry args={[0.5, 0.07, 0.5]} />
           <meshStandardMaterial color="#e8e8e4" roughness={0.5} />
