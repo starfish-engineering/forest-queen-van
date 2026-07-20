@@ -11,8 +11,9 @@ export async function generateStaticParams() {
   }));
 }
 
-export async function generateMetadata({ params }: { params: { slug: string } }) {
-  const system = getSystemBySlug(params.slug);
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const system = getSystemBySlug(slug);
 
   if (!system) {
     return {
@@ -26,8 +27,9 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
-export default function SystemPage({ params }: { params: { slug: string } }) {
-  const system = getSystemBySlug(params.slug);
+export default async function SystemPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const system = getSystemBySlug(slug);
 
   if (!system) {
     notFound();
