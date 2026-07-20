@@ -14,7 +14,7 @@ import { useFrame } from '@react-three/fiber';
  * bed/garage, galley, battery bank, water, propane, framing — is the subject.
  */
 
-const PAINT = '#e8eae6'; // Oxford-white
+const PAINT = '#eef1ed'; // Oxford-white
 const DARK = '#1c201e';
 const GLASS = '#0a1216';
 const WOOD = '#c9a877';
@@ -25,7 +25,12 @@ function useBodyProfile() {
   return useMemo(() => {
     const s = new THREE.Shape();
     s.moveTo(-3.35, 0.62); // rear, bottom of body
-    s.lineTo(2.7, 0.62); // rocker line
+    // rocker line, notched with real wheel-arch openings (axle y=0.37, r=0.5)
+    s.lineTo(-1.793, 0.62);
+    s.absarc(-1.36, 0.37, 0.5, 2.618, 0.524, true); // rear arch
+    s.lineTo(1.957, 0.62);
+    s.absarc(2.39, 0.37, 0.5, 2.618, 0.524, true); // front arch
+    s.lineTo(2.7, 0.62);
     s.lineTo(3.28, 0.68); // bumper lower lip
     s.quadraticCurveTo(3.38, 0.8, 3.38, 0.98); // bumper face
     s.lineTo(3.32, 1.28); // grille top
@@ -42,24 +47,30 @@ function useBodyProfile() {
 }
 
 function Wheel({ x, z }: { x: number; z: number }) {
+  const out = z > 0 ? 1 : -1; // local +Y maps to world +Z after the PI/2 tilt
   return (
     <group position={[x, 0.37, z]} rotation={[Math.PI / 2, 0, 0]}>
       <mesh castShadow>
-        <cylinderGeometry args={[0.37, 0.37, 0.25, 28]} />
-        <meshStandardMaterial color="#141615" roughness={0.9} />
+        <cylinderGeometry args={[0.37, 0.37, 0.24, 32]} />
+        <meshStandardMaterial color="#1a1c1b" roughness={0.95} />
       </mesh>
-      <mesh position={[0, z > 0 ? 0.13 : -0.13, 0]}>
-        <cylinderGeometry args={[0.17, 0.17, 0.02, 20]} />
-        <meshStandardMaterial color={STEEL} metalness={0.8} roughness={0.3} />
+      <mesh position={[0, out * 0.125, 0]}>
+        <cylinderGeometry args={[0.2, 0.2, 0.035, 24]} />
+        <meshStandardMaterial color="#b9bec0" metalness={0.85} roughness={0.25} />
+      </mesh>
+      <mesh position={[0, out * 0.148, 0]}>
+        <cylinderGeometry args={[0.065, 0.065, 0.02, 16]} />
+        <meshStandardMaterial color="#3a3f41" metalness={0.6} roughness={0.4} />
       </mesh>
     </group>
   );
 }
 
-function WheelArch({ x }: { x: number }) {
+// Dark liner inside the arch tunnel — blocks the see-through into the interior.
+function ArchLiner({ x }: { x: number }) {
   return (
-    <mesh position={[x, 0.62, 0]} rotation={[Math.PI / 2, 0, 0]}>
-      <cylinderGeometry args={[0.45, 0.45, 2.1, 24]} />
+    <mesh position={[x, 0.37, 0]} rotation={[Math.PI / 2, 0, 0]}>
+      <cylinderGeometry args={[0.435, 0.435, 1.88, 24]} />
       <meshStandardMaterial color="#0d0f0e" roughness={1} />
     </mesh>
   );
@@ -239,7 +250,7 @@ function Interior() {
 
 export default function TransitModel({ open }: { open: boolean }) {
   const profile = useBodyProfile();
-  const shellMat = useRef<THREE.MeshStandardMaterial>(null);
+  const shellMat = useRef<THREE.MeshPhysicalMaterial>(null);
   const glassGroup = useRef<THREE.Group>(null);
 
   const bodyGeom = useMemo(() => {
@@ -269,25 +280,28 @@ export default function TransitModel({ open }: { open: boolean }) {
 
   return (
     <group>
-      {/* body shell */}
+      {/* body shell — clearcoat car paint */}
       <mesh geometry={bodyGeom} castShadow>
-        <meshStandardMaterial
+        <meshPhysicalMaterial
           ref={shellMat}
           color={PAINT}
-          metalness={0.35}
-          roughness={0.4}
+          metalness={0.15}
+          roughness={0.38}
+          clearcoat={0.55}
+          clearcoatRoughness={0.18}
           transparent
-          envMapIntensity={0.9}
+          envMapIntensity={1.1}
         />
       </mesh>
 
       {/* glass + exterior fittings that fade with the shell */}
       <group ref={glassGroup}>
-        {/* windshield on the rake */}
-        <Glass size={[1.02, 0.035, 1.66]} position={[2.33, 1.93, 0]} rotation={[0, 0, 0.93]} />
-        {/* cab door windows */}
-        <Glass size={[0.78, 0.6, 0.02]} position={[1.95, 1.95, 1.03]} />
-        <Glass size={[0.78, 0.6, 0.02]} position={[1.95, 1.95, -1.03]} />
+        {/* windshield laid flat on the rake face (cowl 2.6,1.5 → roof lead 2.0,2.32,
+            pushed 0.07 out along the face normal to clear the bevel-expanded skin) */}
+        <Glass size={[0.98, 0.035, 1.5]} position={[2.36, 1.95, 0]} rotation={[0, 0, -0.94]} />
+        {/* cab door windows — kept behind the A-pillar rake */}
+        <Glass size={[0.6, 0.55, 0.02]} position={[1.78, 1.9, 1.03]} />
+        <Glass size={[0.6, 0.55, 0.02]} position={[1.78, 1.9, -1.03]} />
         {/* sliding-door window (passenger) + galley T-vent (driver) */}
         <Glass size={[1.0, 0.55, 0.02]} position={[0.45, 1.92, 1.03]} />
         <Glass size={[0.85, 0.5, 0.02]} position={[0.5, 1.9, -1.03]} />
@@ -295,24 +309,24 @@ export default function TransitModel({ open }: { open: boolean }) {
         <Glass size={[0.02, 0.6, 0.72]} position={[-3.38, 2.1, 0.45]} />
         <Glass size={[0.02, 0.6, 0.72]} position={[-3.38, 2.1, -0.45]} />
 
-        {/* grille + headlights + bumper */}
+        {/* grille + headlights flanking it + bumper */}
         <mesh position={[3.37, 1.13, 0]}>
-          <boxGeometry args={[0.06, 0.3, 1.3]} />
+          <boxGeometry args={[0.06, 0.3, 1.1]} />
           <meshStandardMaterial color={DARK} roughness={0.6} />
         </mesh>
         {[0.09, 0, -0.09].map((dy) => (
-          <mesh key={dy} position={[3.4, 1.13 + dy, 0]}>
-            <boxGeometry args={[0.02, 0.035, 1.26]} />
+          <mesh key={dy} position={[3.41, 1.13 + dy, 0]}>
+            <boxGeometry args={[0.02, 0.035, 1.06]} />
             <meshStandardMaterial color={STEEL} metalness={0.9} roughness={0.2} />
           </mesh>
         ))}
-        {[0.64, -0.64].map((z) => (
-          <mesh key={z} position={[3.33, 1.33, z]}>
-            <boxGeometry args={[0.08, 0.15, 0.44]} />
+        {[0.72, -0.72].map((z) => (
+          <mesh key={z} position={[3.38, 1.13, z]}>
+            <boxGeometry args={[0.05, 0.26, 0.34]} />
             <meshStandardMaterial color="#e9edf0" emissive="#c8d4dc" emissiveIntensity={0.35} roughness={0.15} />
           </mesh>
         ))}
-        <mesh position={[3.34, 0.74, 0]}>
+        <mesh position={[3.4, 0.74, 0]}>
           <boxGeometry args={[0.12, 0.28, 2.02]} />
           <meshStandardMaterial color="#2a2d2c" roughness={0.8} />
         </mesh>
@@ -352,13 +366,13 @@ export default function TransitModel({ open }: { open: boolean }) {
         </mesh>
       </group>
 
-      {/* wheels + arches (always visible) */}
-      <WheelArch x={2.39} />
-      <WheelArch x={-1.36} />
-      <Wheel x={2.39} z={0.88} />
-      <Wheel x={2.39} z={-0.88} />
-      <Wheel x={-1.36} z={0.88} />
-      <Wheel x={-1.36} z={-0.88} />
+      {/* wheels in real arch cutouts, slightly recessed from the skin */}
+      <ArchLiner x={2.39} />
+      <ArchLiner x={-1.36} />
+      <Wheel x={2.39} z={0.82} />
+      <Wheel x={2.39} z={-0.82} />
+      <Wheel x={-1.36} z={0.82} />
+      <Wheel x={-1.36} z={-0.82} />
 
       {/* roof kit: rails, 400W solar, MaxxAir fan */}
       {[0.62, -0.62].map((z) => (

@@ -1,8 +1,8 @@
 'use client';
 
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Html, useProgress, Environment, ContactShadows } from '@react-three/drei';
-import { Component, Suspense, useEffect, useState, type ReactNode } from 'react';
+import { OrbitControls, Html, useProgress, Environment, ContactShadows, Lightformer } from '@react-three/drei';
+import { Component, Suspense, useState, useSyncExternalStore, type ReactNode } from 'react';
 import Link from 'next/link';
 import TransitModel from '@/components/van/TransitModel';
 
@@ -29,6 +29,16 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean
   }
 }
 
+const REDUCED_MQ = '(prefers-reduced-motion: reduce)';
+function subscribeReducedMotion(cb: () => void) {
+  const mq = window.matchMedia(REDUCED_MQ);
+  mq.addEventListener('change', cb);
+  return () => mq.removeEventListener('change', cb);
+}
+function getReducedMotion() {
+  return window.matchMedia(REDUCED_MQ).matches;
+}
+
 function Loader() {
   const { progress, active } = useProgress();
   if (!active) return null;
@@ -45,15 +55,7 @@ function Loader() {
 export default function VanExplorer({ systems }: { systems: HotspotSystem[] }) {
   const [active, setActive] = useState<HotspotSystem | null>(null);
   const [open, setOpen] = useState(false);
-  const [reduced, setReduced] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setReduced(mq.matches);
-    const on = () => setReduced(mq.matches);
-    mq.addEventListener('change', on);
-    return () => mq.removeEventListener('change', on);
-  }, []);
+  const reduced = useSyncExternalStore(subscribeReducedMotion, getReducedMotion, () => false);
 
   const select = (s: HotspotSystem) => {
     const next = active?.slug === s.slug ? null : s;
@@ -63,16 +65,33 @@ export default function VanExplorer({ systems }: { systems: HotspotSystem[] }) {
 
   return (
     <div className="fqx-root">
-      <Canvas shadows camera={{ position: [7.5, 3.2, 7.5], fov: 40 }} dpr={[1, 1.5]}>
+      <Canvas shadows camera={{ position: [7.5, 3.0, 7.5], fov: 40 }} dpr={[1, 1.5]}>
         <color attach="background" args={['#0e1511']} />
-        <ambientLight intensity={0.55} />
-        <directionalLight position={[6, 8, 4]} intensity={1.2} castShadow />
+        <fog attach="fog" args={['#0e1511', 16, 30]} />
+        <hemisphereLight args={['#dfe8e2', '#20281f', 0.75]} />
+        <directionalLight
+          position={[6, 8, 4]}
+          intensity={1.5}
+          castShadow
+          shadow-mapSize-width={1024}
+          shadow-mapSize-height={1024}
+        />
+        <directionalLight position={[-7, 3, -6]} intensity={0.35} color="#a9c4d8" />
+        {/* procedural studio env — no network fetch, deterministic reflections */}
         <ErrorBoundary>
           <Suspense fallback={null}>
-            <Environment preset="city" />
+            <Environment resolution={64}>
+              <Lightformer intensity={1.8} position={[0, 5, 0]} rotation={[Math.PI / 2, 0, 0]} scale={[10, 6, 1]} />
+              <Lightformer intensity={0.8} position={[-6, 2, 3]} rotation={[0, Math.PI / 2, 0]} scale={[6, 2.5, 1]} />
+              <Lightformer intensity={0.6} position={[7, 2, -3]} rotation={[0, -Math.PI / 2, 0]} scale={[6, 2.5, 1]} />
+            </Environment>
           </Suspense>
         </ErrorBoundary>
-        <ContactShadows position={[0, 0.01, 0]} opacity={0.45} scale={18} blur={2.4} far={4} />
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}>
+          <circleGeometry args={[16, 48]} />
+          <meshStandardMaterial color="#131a15" roughness={1} />
+        </mesh>
+        <ContactShadows position={[0, 0.01, 0]} opacity={0.5} scale={18} blur={2.4} far={4} />
         <Suspense fallback={<Loader />}>
           <TransitModel open={open} />
         </Suspense>
@@ -159,7 +178,7 @@ export default function VanExplorer({ systems }: { systems: HotspotSystem[] }) {
 }
 
 const CSS = `
-.fqx-root{position:fixed;inset:0;background:#0e1511;color:#f3f0e6;
+.fqx-root{position:fixed;top:64px;left:0;right:0;bottom:0;background:#0e1511;color:#f3f0e6;
   font-family:system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden;touch-action:none}
 .fqx-loader{display:flex;align-items:center;gap:8px;color:#c9d4c9;font-size:13px;white-space:nowrap}
 .fqx-spin{width:14px;height:14px;border-radius:50%;border:2px solid #2a352c;border-top-color:#cf9646;
