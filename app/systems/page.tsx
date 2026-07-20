@@ -187,7 +187,6 @@ export default function SystemsPage() {
       <section className="py-20 px-6">
         <div className="max-w-4xl mx-auto">
           <div className="bg-gradient-to-br from-emerald-900 to-teal-900 text-white rounded-3xl p-12 text-center">
-            <div className="text-5xl mb-6">💡</div>
             <h2 className="text-3xl md:text-4xl font-bold mb-6">
               Build Philosophy
             </h2>

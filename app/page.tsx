@@ -25,12 +25,11 @@ export default function Home() {
 
         <div className="relative z-10 text-center px-6 max-w-5xl mx-auto py-20">
           <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 tracking-tight">
-            Building Freedom,
-            <br />
-            One Bolt at a Time
+            Forest Queen
           </h1>
           <p className="text-xl md:text-2xl text-emerald-100 mb-8 max-w-3xl mx-auto">
-            The complete journey of transforming an empty 2019 Ford Transit into a full-time home on wheels — documented from first cut to final touch.
+            An empty 2019 Ford Transit, built by hand into a full-time home.
+            Every system documented. The van is for sale.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Link

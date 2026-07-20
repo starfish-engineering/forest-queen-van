@@ -92,7 +92,6 @@ export default function AboutPage() {
 
           <div className="grid md:grid-cols-2 gap-8">
             <div className="bg-white p-8 rounded-2xl shadow-lg border-2 border-gray-200 hover:border-emerald-500 transition-all">
-              <div className="text-4xl mb-4">🎯</div>
               <h3 className="text-2xl font-bold text-gray-900 mb-4">Quality Over Speed</h3>
               <p className="text-gray-700">
                 Four years might seem long, but every system was built right the first time. No shortcuts,
@@ -101,7 +100,6 @@ export default function AboutPage() {
             </div>
 
             <div className="bg-white p-8 rounded-2xl shadow-lg border-2 border-gray-200 hover:border-emerald-500 transition-all">
-              <div className="text-4xl mb-4">📚</div>
               <h3 className="text-2xl font-bold text-gray-900 mb-4">Document Everything</h3>
               <p className="text-gray-700">
                 I learned from generous builders who shared online. This site is my way of paying that
@@ -110,7 +108,6 @@ export default function AboutPage() {
             </div>
 
             <div className="bg-white p-8 rounded-2xl shadow-lg border-2 border-gray-200 hover:border-emerald-500 transition-all">
-              <div className="text-4xl mb-4">🔧</div>
               <h3 className="text-2xl font-bold text-gray-900 mb-4">Thoughtful Design</h3>
               <p className="text-gray-700">
                 Every decision considered full-time living. Not a weekend warrior van—a legitimate home
@@ -119,7 +116,6 @@ export default function AboutPage() {
             </div>
 
             <div className="bg-white p-8 rounded-2xl shadow-lg border-2 border-gray-200 hover:border-emerald-500 transition-all">
-              <div className="text-4xl mb-4">🔄</div>
               <h3 className="text-2xl font-bold text-gray-900 mb-4">Continuous Improvement</h3>
               <p className="text-gray-700">
                 The build evolved over time. What worked stayed. What didn't got redesigned. The van today
@@ -140,7 +136,6 @@ export default function AboutPage() {
 
           <div className="grid md:grid-cols-3 gap-6">
             <div className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-xl hover:scale-105 transition-all">
-              <div className="text-4xl mb-4">🚐</div>
               <h3 className="font-bold text-xl text-gray-900 mb-3">FarOutRide</h3>
               <p className="text-gray-600 text-sm mb-4">
                 Comprehensive guide for nearly every system in the van. My electrical and plumbing knowledge
@@ -150,7 +145,6 @@ export default function AboutPage() {
             </div>
 
             <div className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-xl hover:scale-105 transition-all">
-              <div className="text-4xl mb-4">⚡</div>
               <h3 className="font-bold text-xl text-gray-900 mb-3">EXPLORIST.life</h3>
               <p className="text-gray-600 text-sm mb-4">
                 Essential for understanding electrical systems. Their wiring diagrams and battery guides
@@ -160,7 +154,6 @@ export default function AboutPage() {
             </div>
 
             <div className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-xl hover:scale-105 transition-all">
-              <div className="text-4xl mb-4">🏗️</div>
               <h3 className="font-bold text-xl text-gray-900 mb-3">Orton Travel Transit</h3>
               <p className="text-gray-600 text-sm mb-4">
                 Go-to resource for 80/20 builds and critical systems. Their floor design inspired my
@@ -232,7 +225,6 @@ export default function AboutPage() {
       {/* Current Location */}
       <section className="py-16 px-6 bg-gray-50">
         <div className="max-w-4xl mx-auto text-center">
-          <div className="text-5xl mb-4">📍</div>
           <h3 className="text-2xl font-bold text-gray-900 mb-3">Where I Am Now</h3>
           <p className="text-xl text-gray-600">
             Washington State, USA

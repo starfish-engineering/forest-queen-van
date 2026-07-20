@@ -59,17 +59,14 @@ export default function CostsPage() {
         <div className="max-w-5xl mx-auto">
           <div className="grid md:grid-cols-3 gap-6 text-center">
             <div className="bg-white p-6 rounded-2xl shadow-sm">
-              <div className="text-3xl mb-2">🛠️</div>
               <div className="text-2xl font-bold text-emerald-700">${costsData.total.toLocaleString()}</div>
               <div className="text-sm text-gray-600">DIY Build Cost</div>
             </div>
             <div className="bg-white p-6 rounded-2xl shadow-sm">
-              <div className="text-3xl mb-2">🏭</div>
               <div className="text-2xl font-bold text-gray-900">$60k - $120k</div>
               <div className="text-sm text-gray-600">Professional Conversion</div>
             </div>
             <div className="bg-emerald-50 p-6 rounded-2xl shadow-sm border-2 border-emerald-500">
-              <div className="text-3xl mb-2">💰</div>
               <div className="text-2xl font-bold text-emerald-900">
                 ${((60000 - costsData.total) / 1000).toFixed(0)}k+ Saved
               </div>
@@ -240,14 +237,12 @@ export default function CostsPage() {
       <section className="py-20 px-6 bg-gradient-to-br from-emerald-900 to-teal-900 text-white">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
-            <div className="text-6xl mb-6">💡</div>
             <h2 className="text-4xl font-bold mb-6">Money Lessons</h2>
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
             {/* Would Spend More */}
             <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8">
-              <div className="text-2xl mb-4">📈 Would Spend More</div>
               <ul className="space-y-3 text-emerald-100">
                 <li className="flex items-start gap-2">
                   <span>•</span>
@@ -262,7 +257,6 @@ export default function CostsPage() {
 
             {/* Would Spend Less */}
             <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8">
-              <div className="text-2xl mb-4">📉 Would Spend Less</div>
               <ul className="space-y-3 text-emerald-100">
                 <li className="flex items-start gap-2">
                   <span>•</span>

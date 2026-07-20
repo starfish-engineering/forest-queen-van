@@ -41,7 +41,6 @@ export default function ContactPage() {
               href="/for-sale"
               className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-lg hover:scale-105 transition-all text-center border-2 border-transparent hover:border-emerald-500"
             >
-              <div className="text-4xl mb-3">🚐</div>
               <div className="font-bold text-gray-900 mb-2">Want to Buy?</div>
               <div className="text-sm text-gray-600">View the full listing details</div>
             </Link>
@@ -50,7 +49,6 @@ export default function ContactPage() {
               href="/journal"
               className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-lg hover:scale-105 transition-all text-center border-2 border-transparent hover:border-emerald-500"
             >
-              <div className="text-4xl mb-3">🔧</div>
               <div className="font-bold text-gray-900 mb-2">Build Questions?</div>
               <div className="text-sm text-gray-600">Read the complete journal</div>
             </Link>
@@ -59,7 +57,6 @@ export default function ContactPage() {
               href="/systems"
               className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-lg hover:scale-105 transition-all text-center border-2 border-transparent hover:border-emerald-500"
             >
-              <div className="text-4xl mb-3">⚡</div>
               <div className="font-bold text-gray-900 mb-2">Technical Specs?</div>
               <div className="text-sm text-gray-600">Explore all systems</div>
             </Link>
@@ -79,7 +76,6 @@ export default function ContactPage() {
 
           {formState === 'success' ? (
             <div className="bg-emerald-50 border-2 border-emerald-500 rounded-2xl p-12 text-center">
-              <div className="text-6xl mb-6">✅</div>
               <h3 className="text-3xl font-bold text-emerald-900 mb-4">Message Sent!</h3>
               <p className="text-lg text-emerald-700 mb-8">
                 Thanks for reaching out. I'll get back to you soon.
@@ -190,7 +186,6 @@ export default function ContactPage() {
           <div className="grid md:grid-cols-3 gap-6">
             {/* Email */}
             <div className="bg-white p-8 rounded-2xl shadow-md">
-              <div className="text-4xl mb-4">📧</div>
               <h3 className="font-bold text-lg text-gray-900 mb-3">Email</h3>
               <a
                 href="mailto:shaun@shaunrob.com"
@@ -202,7 +197,6 @@ export default function ContactPage() {
 
             {/* Instagram */}
             <div className="bg-white p-8 rounded-2xl shadow-md">
-              <div className="text-4xl mb-4">📸</div>
               <h3 className="font-bold text-lg text-gray-900 mb-3">Instagram</h3>
               <a
                 href="https://instagram.com/forestqueenvan"
@@ -216,7 +210,6 @@ export default function ContactPage() {
 
             {/* Location */}
             <div className="bg-white p-8 rounded-2xl shadow-md">
-              <div className="text-4xl mb-4">📍</div>
               <h3 className="font-bold text-lg text-gray-900 mb-3">Location</h3>
               <p className="text-gray-600">Washington State, USA</p>
             </div>
@@ -228,7 +221,6 @@ export default function ContactPage() {
       <section className="py-20 px-6">
         <div className="max-w-4xl mx-auto">
           <div className="bg-gradient-to-br from-emerald-900 to-teal-900 text-white rounded-3xl p-12 text-center">
-            <div className="text-5xl mb-6">💡</div>
             <h2 className="text-3xl font-bold mb-6">
               Common Questions
             </h2>
