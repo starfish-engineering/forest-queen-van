@@ -262,6 +262,10 @@ export default function VanExplorer({ data, standalone }: { data: ExplorerData; 
                   <b>400Ah lithium · 400W solar</b>
                 </div>
                 <div className="fqx-spec">
+                  <span>Bed</span>
+                  <b>Murphy, queen with extension</b>
+                </div>
+                <div className="fqx-spec">
                   <span>Build invested</span>
                   <b>${buildTotal.toLocaleString()} in materials</b>
                 </div>

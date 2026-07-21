@@ -15,8 +15,11 @@ import { useFrame } from '@react-three/fiber';
  *
  * Interior mirrors the documented build (per the photo archive):
  * galley on the PASSENGER side aft of the slider (window above, MaxxAir fan
- * overhead), toilet/cooler-fridge bench on the DRIVER side under its window,
- * bed/garage rear with the battery bank + Victron, propane in the rear corner.
+ * overhead, subway backsplash on the wall); flip-up bench on the DRIVER side
+ * under its window — three lids over cooler fridge / toilet cabinet / storage;
+ * murphy bed rear (queen extension foam stows above the counter, which
+ * doubles as a workspace); swivel cab seats face the living space in camp
+ * mode; battery bank + Victron in the garage, propane in the rear corner.
  *
  * `open` fades the body shell to an x-ray so the build inside is the subject.
  */
@@ -129,7 +132,7 @@ function SolarPanel({ x }: { x: number }) {
   );
 }
 
-function Interior() {
+function Interior({ open }: { open: boolean }) {
   return (
     <group>
       {/* cargo floor */}
@@ -143,13 +146,14 @@ function Interior() {
         <boxGeometry args={[0.45, 0.45, 1.8]} />
         <meshStandardMaterial color={DARK} roughness={0.8} />
       </mesh>
+      {/* swivel seats — in camp mode (x-ray open) they face the living space */}
       {[-0.55, 0.55].map((z) => (
-        <group key={z}>
-          <mesh position={[2.15, 1.05, z]} castShadow>
+        <group key={z} position={[2.15, 0, z]} rotation={[0, open ? Math.PI : 0, 0]}>
+          <mesh position={[0, 1.05, 0]} castShadow>
             <boxGeometry args={[0.55, 0.45, 0.55]} />
             <meshStandardMaterial color="#2b2f2d" roughness={0.9} />
           </mesh>
-          <mesh position={[1.92, 1.55, z]} rotation={[0, 0, -0.15]}>
+          <mesh position={[-0.23, 1.55, 0]} rotation={[0, 0, -0.15]}>
             <boxGeometry args={[0.14, 0.75, 0.55]} />
             <meshStandardMaterial color="#2b2f2d" roughness={0.9} />
           </mesh>
@@ -160,13 +164,14 @@ function Interior() {
         <meshStandardMaterial color="#111312" roughness={0.7} />
       </mesh>
 
-      {/* bed platform + mattress + garage face (rear) */}
+      {/* murphy bed (rear): platform + main mattress between twin and full;
+          the queen extension foam stows tied up against the galley wall */}
       <mesh position={[-2.35, 1.28, 0]} castShadow>
         <boxGeometry args={[1.9, 0.08, 1.78]} />
         <meshStandardMaterial color={WOOD} roughness={0.7} />
       </mesh>
-      <mesh position={[-2.35, 1.43, 0]} castShadow>
-        <boxGeometry args={[1.82, 0.2, 1.68]} />
+      <mesh position={[-2.35, 1.43, -0.315]} castShadow>
+        <boxGeometry args={[1.82, 0.2, 1.15]} />
         <meshStandardMaterial color="#d8d4cc" roughness={0.95} />
       </mesh>
       <mesh position={[-1.42, 0.98, 0]}>
@@ -225,21 +230,29 @@ function Interior() {
         <boxGeometry args={[0.42, 0.38, 0.3]} />
         <meshStandardMaterial color="#eef0ee" roughness={0.6} />
       </mesh>
+      {/* peel-and-stick subway backsplash on the passenger wall behind the galley */}
+      <mesh position={[-0.8, 1.8, 0.925]}>
+        <boxGeometry args={[1.32, 0.46, 0.02]} />
+        <meshStandardMaterial color="#e9e4de" roughness={0.25} />
+      </mesh>
+      {/* queen extension foam, tied up above the counter (frees it as workspace) */}
+      <mesh position={[-0.8, 2.0, 0.87]}>
+        <boxGeometry args={[1.2, 0.45, 0.07]} />
+        <meshStandardMaterial color="#d8d4cc" roughness={0.95} />
+      </mesh>
 
-      {/* toilet/cooler-fridge bench — DRIVER side, under its window */}
+      {/* flip-up bench — DRIVER side, under its window: three lids over the
+          cooler-style fridge, the toilet cabinet and storage */}
       <mesh position={[0.7, 0.91, -0.7]} castShadow>
         <boxGeometry args={[1.2, 0.42, 0.5]} />
         <meshStandardMaterial color={BIRCH} roughness={0.65} />
       </mesh>
-      <mesh position={[0.7, 1.16, -0.7]}>
-        <boxGeometry args={[1.16, 0.08, 0.46]} />
-        <meshStandardMaterial color="#3a4038" roughness={0.9} />
-      </mesh>
-      {/* cooler-fridge face in the bench front */}
-      <mesh position={[0.45, 0.9, -0.44]}>
-        <boxGeometry args={[0.5, 0.34, 0.03]} />
-        <meshStandardMaterial color="#4a5054" metalness={0.5} roughness={0.4} />
-      </mesh>
+      {[0.32, 0.7, 1.08].map((x) => (
+        <mesh key={x} position={[x, 1.16, -0.7]}>
+          <boxGeometry args={[0.34, 0.08, 0.46]} />
+          <meshStandardMaterial color="#3a4038" roughness={0.9} />
+        </mesh>
+      ))}
 
       {/* upper cabinets: long run above the driver bench, short one by the bed */}
       <mesh position={[0.7, 2.32, -0.78]}>
@@ -460,7 +473,7 @@ export default function TransitModel({ open }: { open: boolean }) {
         </mesh>
       </group>
 
-      <Interior />
+      <Interior open={open} />
     </group>
   );
 }
