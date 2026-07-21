@@ -8,6 +8,9 @@ export default function Navigation() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // The homepage is the 3D explorer with its own chrome — no site nav there.
+  if (pathname === '/') return null;
+
   const navLinks = [
     { href: '/', label: 'Home' },
     { href: '/journal', label: 'Build Journal' },
