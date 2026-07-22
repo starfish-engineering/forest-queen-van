@@ -241,18 +241,27 @@ function Interior({ open }: { open: boolean }) {
         <meshStandardMaterial color="#d8d4cc" roughness={0.95} />
       </mesh>
 
-      {/* flip-up bench — DRIVER side, under its window: three lids over the
-          cooler-style fridge, the toilet cabinet and storage */}
-      <mesh position={[0.7, 0.91, -0.7]} castShadow>
-        <boxGeometry args={[1.2, 0.42, 0.5]} />
+      {/* flip-up bench — full run along the driver wall, window to bed.
+          Three lids: Dometic 95 cooler-fridge (widest), composting toilet
+          box, then a smaller storage bay; flat cap on the stretch by the bed */}
+      <mesh position={[-0.06, 0.91, -0.7]} castShadow>
+        <boxGeometry args={[2.72, 0.42, 0.5]} />
         <meshStandardMaterial color={BIRCH} roughness={0.65} />
       </mesh>
-      {[0.32, 0.7, 1.08].map((x) => (
+      {[
+        [0.79, 0.92],
+        [0.0, 0.58],
+        [-0.55, 0.42],
+      ].map(([x, w]) => (
         <mesh key={x} position={[x, 1.16, -0.7]}>
-          <boxGeometry args={[0.34, 0.08, 0.46]} />
+          <boxGeometry args={[w, 0.08, 0.46]} />
           <meshStandardMaterial color="#3a4038" roughness={0.9} />
         </mesh>
       ))}
+      <mesh position={[-1.11, 1.14, -0.7]}>
+        <boxGeometry args={[0.58, 0.04, 0.48]} />
+        <meshStandardMaterial color={BIRCH} roughness={0.65} />
+      </mesh>
 
       {/* upper cabinets: long run above the driver bench, short one by the bed */}
       <mesh position={[0.7, 2.32, -0.78]}>
@@ -270,13 +279,28 @@ function Interior({ open }: { open: boolean }) {
         <meshStandardMaterial color="#7d8481" roughness={0.6} />
       </mesh>
 
-      {/* ceiling slats */}
+      {/* ceiling: cross battens with long running slats beneath, and
+          recessed puck lights set into the slats */}
       {Array.from({ length: 9 }, (_, i) => -2.9 + i * 0.52).map((x) => (
         <mesh key={x} position={[x, 2.62, 0]}>
           <boxGeometry args={[0.1, 0.02, 1.8]} />
           <meshStandardMaterial color="#d9c9a8" roughness={0.8} />
         </mesh>
       ))}
+      {Array.from({ length: 12 }, (_, i) => -0.825 + i * 0.15).map((z) => (
+        <mesh key={z} position={[-0.8, 2.6, z]}>
+          <boxGeometry args={[4.2, 0.02, 0.09]} />
+          <meshStandardMaterial color="#e2d4b2" roughness={0.75} />
+        </mesh>
+      ))}
+      {[0.9, -0.5, -1.9].flatMap((x) =>
+        [-0.45, 0.45].map((z) => (
+          <mesh key={`${x}${z}`} position={[x, 2.585, z]} rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[0.045, 0.045, 0.012, 16]} />
+            <meshStandardMaterial color="#fff2d9" emissive="#ffca7a" emissiveIntensity={1.1} roughness={0.4} />
+          </mesh>
+        ))
+      )}
 
       {/* 80/20 aluminum uprights at the galley + bench ends */}
       {[
